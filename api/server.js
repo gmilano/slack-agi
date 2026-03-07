@@ -49,6 +49,85 @@ const AGENT_DEFS = {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// ── Agent execution tools ─────────────────────────────────
+const AGENT_TOOLS = {
+  cody: {
+    name: 'write_technical_doc',
+    artifactType: 'architecture',
+    execute: async (task, context) => {
+      const res = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are Cody, a senior engineer. Write a detailed technical document in markdown. Be specific, include code examples where relevant, cover architecture decisions, tradeoffs, and implementation notes.' },
+          { role: 'user', content: `Task: ${task.title}\nContext: ${context}\n\nWrite the full technical document now.` }
+        ],
+        max_tokens: 800
+      });
+      return res.choices[0].message.content;
+    }
+  },
+  sage: {
+    name: 'write_research_report',
+    artifactType: 'research_report',
+    execute: async (task, context) => {
+      const res = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are Sage, a researcher. Write a thorough research report in markdown. Include: ## Summary, ## Key Findings, ## Data Points, ## Risks & Considerations, ## Recommendations. Use specific examples, numbers, comparisons.' },
+          { role: 'user', content: `Research task: ${task.title}\nContext: ${context}\n\nWrite the full research report now.` }
+        ],
+        max_tokens: 800
+      });
+      return res.choices[0].message.content;
+    }
+  },
+  aria: {
+    name: 'write_prd',
+    artifactType: 'analysis',
+    execute: async (task, context) => {
+      const res = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are Aria, a Product Manager. Write a product document in markdown. Include: ## Problem Statement, ## Goals & Success Metrics, ## User Stories, ## Scope (In/Out), ## Milestones, ## Open Questions.' },
+          { role: 'user', content: `Product task: ${task.title}\nContext: ${context}\n\nWrite the full product document now.` }
+        ],
+        max_tokens: 800
+      });
+      return res.choices[0].message.content;
+    }
+  },
+  agi: {
+    name: 'write_synthesis',
+    artifactType: 'decision_doc',
+    execute: async (task, context) => {
+      const res = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are AGI, a superintelligent AI. Write a synthesis document in markdown. Be decisive: ## Executive Summary, ## Key Decision, ## Rationale, ## Risks Acknowledged, ## Immediate Next Steps (numbered, specific, assigned).' },
+          { role: 'user', content: `Synthesis task: ${task.title}\nContext: ${context}\n\nWrite the full synthesis now.` }
+        ],
+        max_tokens: 800
+      });
+      return res.choices[0].message.content;
+    }
+  },
+  rex: {
+    name: 'write_risk_analysis',
+    artifactType: 'analysis',
+    execute: async (task, context) => {
+      const res = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'You are Rex, a devil\'s advocate. Write a risk analysis in markdown. Include: ## Assumptions Challenged, ## Edge Cases, ## Failure Modes, ## Mitigation Strategies, ## Recommendation.' },
+          { role: 'user', content: `Risk analysis task: ${task.title}\nContext: ${context}\n\nWrite the full risk analysis now.` }
+        ],
+        max_tokens: 800
+      });
+      return res.choices[0].message.content;
+    }
+  }
+};
+
 const app = express();
 const server = createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -997,6 +1076,107 @@ async function runTeamSession(channelId, topic) {
         });
         io.to(channelId).emit('session_completed', { sessionId: sessionThread.id, title: sessionThread.title });
       }
+
+      // Generate ActionPlan from the discussion
+      try {
+        const allUsers = await prisma.user.findMany();
+        const usernames = allUsers.map(u => u.username).join(', ');
+        const planCompletion = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: `You are AGI. Based on this team discussion, generate a concrete action plan. Return JSON with:
+{
+  "title": "string",
+  "context": "2-3 sentence summary",
+  "items": [
+    { "title": "string", "description": "string", "assigneeUsername": "string", "canAutoExecute": true/false, "order": 0 }
+  ]
+}
+assigneeUsername must be one of: ${usernames}
+canAutoExecute=true only for: agi, aria, cody, sage, rex (AI agents)
+Generate 3-5 action items. Be specific.`
+            },
+            {
+              role: 'user',
+              content: `Topic: "${topic}"\n\nDiscussion:\n${fullDiscussion}`
+            }
+          ],
+          temperature: 0.6,
+          response_format: { type: 'json_object' },
+        });
+
+        const planData = JSON.parse(planCompletion.choices[0].message.content);
+
+        // Create ActionPlan record
+        const actionPlan = await prisma.actionPlan.create({
+          data: {
+            sessionId: sessionThread?.id,
+            channelId,
+            title: planData.title || `Plan: ${topic}`,
+            context: planData.context || '',
+            status: 'draft',
+          },
+        });
+
+        // Create ActionItem records
+        const planItems = [];
+        for (const item of (planData.items || [])) {
+          const assigneeUser = allUsers.find(u => u.username === item.assigneeUsername);
+          if (!assigneeUser) continue;
+          const actionItem = await prisma.actionItem.create({
+            data: {
+              planId: actionPlan.id,
+              title: item.title,
+              description: item.description || null,
+              assigneeId: assigneeUser.id,
+              canAutoExecute: !!item.canAutoExecute,
+              order: item.order || 0,
+            },
+            include: { assignee: true },
+          });
+          planItems.push(actionItem);
+        }
+
+        // Fetch full plan with items
+        const fullPlan = await prisma.actionPlan.findUnique({
+          where: { id: actionPlan.id },
+          include: { items: { include: { assignee: { include: { profile: true } } }, orderBy: { order: 'asc' } } },
+        });
+
+        // Create inbox item for the session creator / channel reviewer
+        const planRecipient = reviewer || (agiUser ? await prisma.user.findFirst({ where: { isBot: false } }) : null);
+        if (planRecipient) {
+          const inboxItem = await prisma.inboxItem.create({
+            data: {
+              userId: planRecipient.id,
+              type: 'decision',
+              title: `Action Plan ready: ${fullPlan.title}`,
+              priority: 'high',
+              fromAgent: 'agi',
+            },
+          });
+          io.emit('inbox_update', { userId: planRecipient.id, item: inboxItem });
+        }
+
+        // Emit socket event
+        io.to(channelId).emit('action_plan_ready', fullPlan);
+
+        // Send message in channel
+        const planNotifyMsg = await prisma.message.create({
+          data: {
+            content: `📋 **Action Plan ready** — ${planItems.length} tasks generated. Check your inbox to review and execute.`,
+            userId: agiUser.id,
+            channelId,
+            isAI: true,
+          },
+          include: { user: true },
+        });
+        io.to(channelId).emit('new_message', planNotifyMsg);
+      } catch (planErr) {
+        console.error('Action plan generation failed:', planErr.message);
+      }
     }
   } catch (e) {
     console.error('Decision doc generation failed:', e.message);
@@ -1122,6 +1302,241 @@ async function handleAgiMention(channelId, userMessage) {
     console.error('AGI error:', err.message);
   }
 }
+
+// ── ACTION PLANS ────────────────────────────────────────────
+
+// Get action plan by ID
+app.get('/api/action-plans/:id', async (req, res) => {
+  try {
+    const plan = await prisma.actionPlan.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: {
+          include: { assignee: { include: { profile: true } }, artifact: true },
+          orderBy: { order: 'asc' },
+        },
+        session: true,
+        mission: true,
+        approvedBy: true,
+      },
+    });
+    if (!plan) return res.status(404).json({ error: 'Plan not found' });
+    res.json(plan);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update action plan
+app.patch('/api/action-plans/:id', async (req, res) => {
+  try {
+    const { status, approvedById } = req.body;
+    const data = {};
+    if (status) data.status = status;
+    if (approvedById) {
+      data.approvedById = approvedById;
+      data.approvedAt = new Date();
+    }
+    const plan = await prisma.actionPlan.update({
+      where: { id: req.params.id },
+      data,
+      include: { items: { include: { assignee: true }, orderBy: { order: 'asc' } } },
+    });
+    res.json(plan);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update action item
+app.patch('/api/action-plans/:id/items/:itemId', async (req, res) => {
+  try {
+    const { title, description, assigneeId, status, canAutoExecute } = req.body;
+    const data = {};
+    if (title !== undefined) data.title = title;
+    if (description !== undefined) data.description = description;
+    if (assigneeId !== undefined) data.assigneeId = assigneeId;
+    if (status !== undefined) data.status = status;
+    if (canAutoExecute !== undefined) data.canAutoExecute = canAutoExecute;
+    const item = await prisma.actionItem.update({
+      where: { id: req.params.itemId },
+      data,
+      include: { assignee: { include: { profile: true } } },
+    });
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add item to plan
+app.post('/api/action-plans/:id/items', async (req, res) => {
+  try {
+    const { title, description, assigneeId, canAutoExecute } = req.body;
+    if (!title || !assigneeId) return res.status(400).json({ error: 'title, assigneeId required' });
+    // Get max order
+    const maxItem = await prisma.actionItem.findFirst({
+      where: { planId: req.params.id },
+      orderBy: { order: 'desc' },
+    });
+    const item = await prisma.actionItem.create({
+      data: {
+        planId: req.params.id,
+        title,
+        description: description || null,
+        assigneeId,
+        canAutoExecute: !!canAutoExecute,
+        order: (maxItem?.order || 0) + 1,
+      },
+      include: { assignee: { include: { profile: true } } },
+    });
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete item from plan
+app.delete('/api/action-plans/:id/items/:itemId', async (req, res) => {
+  try {
+    await prisma.actionItem.delete({ where: { id: req.params.itemId } });
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Execute action plan — the "Go" button
+app.post('/api/action-plans/:id/execute', async (req, res) => {
+  const { approvedById } = req.body;
+  if (!approvedById) return res.status(400).json({ error: 'approvedById required' });
+
+  try {
+    // Set plan status to executing
+    await prisma.actionPlan.update({
+      where: { id: req.params.id },
+      data: { status: 'executing', approvedById, approvedAt: new Date() },
+    });
+
+    const plan = await prisma.actionPlan.findUnique({
+      where: { id: req.params.id },
+      include: {
+        items: { include: { assignee: true }, orderBy: { order: 'asc' } },
+      },
+    });
+
+    res.json({ started: true, planId: plan.id });
+
+    // Execute asynchronously
+    executeActionPlan(plan).catch(e => console.error('Plan execution error:', e));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function executeActionPlan(plan) {
+  const allUsers = await prisma.user.findMany();
+
+  for (const item of plan.items) {
+    if (!item.canAutoExecute || item.status !== 'pending') {
+      // Human task — create inbox item
+      if (!item.canAutoExecute && item.status === 'pending') {
+        await prisma.inboxItem.create({
+          data: {
+            userId: item.assigneeId,
+            type: 'decision',
+            title: `Task assigned: ${item.title}`,
+            description: item.description,
+            priority: 'normal',
+            fromAgent: 'agi',
+          },
+        });
+        io.emit('inbox_update', { userId: item.assigneeId });
+      }
+      continue;
+    }
+
+    const agentUsername = item.assignee?.username;
+    const tool = AGENT_TOOLS[agentUsername];
+    if (!tool) continue;
+
+    // Set executing
+    await prisma.actionItem.update({ where: { id: item.id }, data: { status: 'executing' } });
+    io.emit('item_executing', { planId: plan.id, itemId: item.id, assigneeUsername: agentUsername });
+
+    await sleep(1500);
+
+    try {
+      // Execute agent tool
+      const content = await tool.execute(item, plan.context);
+
+      // Find the agent user
+      const agentUser = allUsers.find(u => u.username === agentUsername);
+
+      // Create artifact
+      const artifact = await prisma.artifact.create({
+        data: {
+          channelId: plan.channelId,
+          type: tool.artifactType,
+          title: item.title,
+          content,
+          status: 'draft',
+          createdById: agentUser?.id || item.assigneeId,
+        },
+        include: { createdBy: true },
+      });
+
+      // Update item
+      await prisma.actionItem.update({
+        where: { id: item.id },
+        data: { status: 'done', outputArtifactId: artifact.id, executedAt: new Date() },
+      });
+
+      io.emit('item_done', { planId: plan.id, itemId: item.id, artifact });
+
+      // Create inbox item for plan approver to review
+      if (plan.approvedById) {
+        await prisma.inboxItem.create({
+          data: {
+            userId: plan.approvedById,
+            type: 'artifact_review',
+            title: `Review: ${artifact.title}`,
+            priority: 'normal',
+            artifactId: artifact.id,
+            fromAgent: agentUsername,
+          },
+        });
+        io.emit('inbox_update', { userId: plan.approvedById });
+      }
+    } catch (execErr) {
+      console.error(`Execution failed for item ${item.id}:`, execErr.message);
+      await prisma.actionItem.update({ where: { id: item.id }, data: { status: 'pending' } });
+    }
+  }
+
+  // Mark plan as completed
+  await prisma.actionPlan.update({
+    where: { id: plan.id },
+    data: { status: 'completed' },
+  });
+  io.emit('plan_executed', { planId: plan.id });
+}
+
+// Update artifact content (human edits)
+app.patch('/api/artifacts/:id/content', async (req, res) => {
+  try {
+    const { content } = req.body;
+    if (!content) return res.status(400).json({ error: 'content required' });
+    const artifact = await prisma.artifact.update({
+      where: { id: req.params.id },
+      data: { content },
+      include: { createdBy: true, reviewer: true },
+    });
+    res.json(artifact);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Socket.io
 io.on('connection', (socket) => {

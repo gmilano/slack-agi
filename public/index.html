@@ -497,6 +497,122 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 }
 .show-archived-toggle:hover { color: #ababad; }
 
+/* ─── ACTION PLAN PANEL ────────────────────────────────── */
+.btn-plan {
+  background: #2c2d30; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  font-weight: 700; flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+  position: relative;
+}
+.btn-plan:hover { background: #3e3f42; border-color: #7b61ff; color: #fff; }
+.btn-plan.has-plan { border-color: #7b61ff; color: #7b61ff; }
+.plan-badge {
+  position: absolute; top: -6px; right: -6px; background: #7b61ff;
+  color: #fff; font-size: 0.6rem; font-weight: 800; min-width: 16px;
+  height: 16px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; padding: 0 4px;
+}
+.action-plan-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 420px; max-width: 100vw;
+  background: #2c2d30; border-left: 1px solid #3e3f42; z-index: 60;
+  transform: translateX(100%); transition: transform 0.25s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.action-plan-panel.open { transform: translateX(0); }
+.ap-header { padding: 14px 16px; border-bottom: 1px solid #3e3f42; display: flex; align-items: center; justify-content: space-between; }
+.ap-header h3 { color: #fff; font-size: 1rem; font-weight: 700; margin: 0; }
+.ap-context { padding: 12px 16px; color: #888; font-size: 0.82rem; line-height: 1.5; border-bottom: 1px solid #3e3f4244; }
+.ap-body { flex: 1; overflow-y: auto; padding: 8px 12px; }
+.action-item {
+  background: #222529; border-radius: 10px; padding: 12px; margin-bottom: 8px;
+  border-left: 3px solid #4a4b4e; transition: all 0.15s;
+}
+.action-item.item-executing { border-left-color: #e8a34a; }
+.action-item.item-done { border-left-color: #2bac76; }
+.action-item .ai-top { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.action-item .ai-order { color: #616061; font-size: 0.75rem; font-weight: 700; min-width: 18px; }
+.badge-auto {
+  display: inline-block; background: #7b61ff22; color: #7b61ff; font-size: 0.62rem;
+  padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase;
+}
+.badge-human {
+  display: inline-block; background: #4a9ce822; color: #4a9ce8; font-size: 0.62rem;
+  padding: 2px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase;
+}
+.action-item .ai-title-wrap { flex: 1; min-width: 0; }
+.action-item .ai-title {
+  color: #fff; font-size: 0.88rem; font-weight: 600; cursor: text;
+  padding: 2px 4px; border-radius: 4px; border: 1px solid transparent;
+  outline: none; display: block; width: 100%;
+}
+.action-item .ai-title:focus { border-color: #7b61ff; background: #1a1d21; }
+.action-item .ai-desc {
+  color: #aaa; font-size: 0.78rem; margin-top: 2px; cursor: text;
+  padding: 2px 4px; border-radius: 4px; border: 1px solid transparent;
+  outline: none; display: block; width: 100%;
+}
+.action-item .ai-desc:focus { border-color: #4a4b4e; background: #1a1d21; }
+.action-item .ai-assignee-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.action-item .ai-assignee-select {
+  background: #1a1d21; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 3px 8px; border-radius: 6px; font-size: 0.78rem; outline: none;
+  cursor: pointer;
+}
+.action-item .ai-hint { color: #616061; font-size: 0.7rem; margin-left: auto; }
+.action-item .ai-delete {
+  background: none; border: none; color: #616061; cursor: pointer;
+  font-size: 1rem; padding: 0 4px; opacity: 0; transition: opacity 0.15s;
+}
+.action-item:hover .ai-delete { opacity: 1; }
+.action-item .ai-delete:hover { color: #e8596e; }
+.action-item .ai-status-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.action-item .ai-spinner {
+  width: 14px; height: 14px; border: 2px solid #4a4b4e; border-top-color: #e8a34a;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.action-item .ai-done-check { color: #2bac76; font-weight: 700; }
+.action-item .ai-artifact-link {
+  color: #7b61ff; font-size: 0.78rem; cursor: pointer; text-decoration: underline;
+}
+.ap-footer {
+  padding: 12px 16px; border-top: 1px solid #3e3f42;
+  display: flex; gap: 8px; align-items: center;
+}
+.ap-footer button {
+  padding: 8px 16px; border-radius: 8px; border: none; font-size: 0.82rem;
+  font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.ap-btn-add {
+  background: #3e3f42; color: #d1d2d3; padding: 6px 12px; border-radius: 6px;
+  border: none; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+  margin: 4px 12px 8px; transition: all 0.15s;
+}
+.ap-btn-add:hover { background: #4a4b4e; color: #fff; }
+
+/* ─── ARTIFACT EDITOR ─────────────────────────────────── */
+.artifact-editor {
+  flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+}
+.artifact-editor textarea {
+  flex: 1; width: 100%; background: #1a1d21; border: none; color: #d1d2d3;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 0.85rem;
+  line-height: 1.6; padding: 20px; resize: none; outline: none;
+  min-height: 300px;
+}
+.artifact-edit-footer {
+  color: #616061; font-size: 0.72rem; padding: 8px 20px;
+  border-top: 1px solid #3e3f42;
+}
+
+/* ─── MARKDOWN CONTENT ────────────────────────────────── */
+.markdown-content h3 { color: #fff; font-size: 0.95rem; margin: 16px 0 8px; font-weight: 700; }
+.markdown-content h4 { color: #d1d2d3; font-size: 0.88rem; margin: 12px 0 6px; font-weight: 600; }
+.markdown-content li { margin: 4px 0; }
+.markdown-content code {
+  background: #3e3f42; padding: 1px 5px; border-radius: 3px; font-size: 0.85em;
+}
+
 /* ─── RESPONSIVE ────────────────────────────────────────── */
 @media (max-width: 640px) {
   #sidebar {
@@ -581,6 +697,7 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
         <div class="ch-title" id="chName">general</div>
         <div class="ch-desc" id="chDesc"></div>
       </div>
+      <button class="btn-plan hidden" id="btnPlan" onclick="togglePlanPanel()">📋 Plan <span class="plan-badge hidden" id="planBadge">!</span></button>
       <button class="btn-inbox" onclick="toggleInbox()">📬 Inbox <span class="inbox-badge hidden" id="inboxBadge">0</span></button>
       <button class="btn-team" onclick="openTeamModal()">⚡ Team</button>
       <button class="btn-summary" onclick="showSummary()">✦ Summary</button>
@@ -690,6 +807,22 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
   </div>
 </div>
 
+<!-- ACTION PLAN PANEL -->
+<div class="action-plan-panel" id="actionPlanPanel">
+  <div class="ap-header">
+    <h3 id="apTitle">Action Plan</h3>
+    <button class="mp-close" onclick="closePlanPanel()">&times;</button>
+  </div>
+  <div class="ap-context" id="apContext"></div>
+  <div class="ap-body" id="apItems"></div>
+  <button class="ap-btn-add" onclick="addPlanItem()">+ Add task</button>
+  <div class="ap-footer" id="apFooter">
+    <button style="background:#3e3f42;color:#aaa" onclick="closePlanPanel()">Cancel</button>
+    <button style="background:#4a4b4e;color:#fff" onclick="savePlanChanges()">Save changes</button>
+    <button style="background:#7b61ff;color:#fff;flex:1" onclick="executePlan()">▶ Execute →</button>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div class="toast" id="toast">
   <div class="toast-title" id="toastTitle"></div>
@@ -719,6 +852,7 @@ let typingTimer = null, typingMap = {};
 let lastMsgUserId = null;
 let missions = [], curMission = null, allUsersCache = [];
 let sessions = [], showArchived = false;
+let currentPlan = null, planEdits = {};
 
 // Restore session
 const savedUser = localStorage.getItem('sagt_user');
@@ -821,6 +955,36 @@ function initSocket() {
     channels.push(ch);
     renderChannelList();
   });
+  socket.on('action_plan_ready', plan => {
+    currentPlan = plan;
+    const btn = document.getElementById('btnPlan');
+    btn.classList.remove('hidden');
+    btn.classList.add('has-plan');
+    const badge = document.getElementById('planBadge');
+    badge.classList.remove('hidden');
+    showToast('📋 Action Plan Ready', plan.title);
+  });
+  socket.on('item_executing', data => {
+    const el = document.getElementById(`ai-status-${data.itemId}`);
+    if (el) el.innerHTML = '<div class="ai-spinner"></div> <span style="color:#e8a34a;font-size:.78rem">Executing...</span>';
+    const row = document.getElementById(`ai-row-${data.itemId}`);
+    if (row) row.classList.add('item-executing');
+  });
+  socket.on('item_done', data => {
+    const el = document.getElementById(`ai-status-${data.itemId}`);
+    if (el) el.innerHTML = `<span class="ai-done-check">✓</span> <span class="ai-artifact-link" onclick="viewArtifact('${data.artifact.id}')">→ ${esc(data.artifact.title)}</span>`;
+    const row = document.getElementById(`ai-row-${data.itemId}`);
+    if (row) { row.classList.remove('item-executing'); row.classList.add('item-done'); }
+    loadInbox();
+  });
+  socket.on('plan_executed', data => {
+    showToast('Plan Complete', 'All auto-executable tasks finished');
+    if (currentPlan?.id === data.planId) {
+      currentPlan.status = 'completed';
+      const footer = document.getElementById('apFooter');
+      footer.innerHTML = '<button style="background:#3e3f42;color:#aaa" onclick="closePlanPanel()">Close</button><span style="color:#2bac76;font-weight:700;margin-left:auto">✓ Completed</span>';
+    }
+  });
   socket.on('typing', d => {
     if (d.userId === me?.id) return;
     if (d.isTyping) typingMap[d.userId] = d.username;
@@ -904,6 +1068,7 @@ async function switchCh(id) {
 async function loadUsers() {
   const r = await fetch('/api/users');
   const users = await r.json();
+  allUsersCache = users;
   document.getElementById('userList').innerHTML = users.map(u =>
     `<div class="u-item">
       <span class="u-dot ${u.isBot?'bot':''}"></span>
@@ -1476,15 +1641,7 @@ async function viewArtifact(artifactId) {
     document.getElementById('avContent').innerHTML = renderMarkdown(art.content);
 
     // Footer actions
-    const footer = document.getElementById('avFooter');
-    let footerHtml = '';
-    if (art.status === 'draft' || art.status === 'pending_review') {
-      footerHtml += `<button class="inbox-btn-approve" onclick="artifactAction('${art.id}','approved')">Approve</button>`;
-      footerHtml += `<button class="inbox-btn-reject" onclick="artifactAction('${art.id}','rejected')">Reject</button>`;
-    }
-    footerHtml += `<button class="inbox-btn-dismiss" onclick="downloadArtifact()">Download .md</button>`;
-    footerHtml += `<button class="inbox-btn-dismiss" onclick="closeArtifactViewer()">Close</button>`;
-    footer.innerHTML = footerHtml;
+    rebuildArtifactFooter(art);
 
     document.getElementById('artifactViewer').classList.remove('hidden');
     // Store current artifact for download
@@ -1691,6 +1848,230 @@ function relTime(d) {
 function esc(t = '') {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+/* ── ACTION PLAN PANEL ── */
+function togglePlanPanel() {
+  const panel = document.getElementById('actionPlanPanel');
+  if (panel.classList.contains('open')) { closePlanPanel(); return; }
+  panel.classList.add('open');
+  document.getElementById('planBadge').classList.add('hidden');
+  if (currentPlan) renderPlanPanel();
+}
+function closePlanPanel() {
+  document.getElementById('actionPlanPanel').classList.remove('open');
+}
+
+async function loadAllUsers() {
+  if (allUsersCache.length) return allUsersCache;
+  const r = await fetch('/api/users');
+  allUsersCache = await r.json();
+  return allUsersCache;
+}
+
+const AI_USERNAMES = ['agi', 'aria', 'cody', 'sage', 'rex'];
+
+async function renderPlanPanel() {
+  if (!currentPlan) return;
+  document.getElementById('apTitle').textContent = currentPlan.title;
+  document.getElementById('apContext').textContent = currentPlan.context;
+
+  const users = await loadAllUsers();
+  const items = currentPlan.items || [];
+  const isEditable = currentPlan.status === 'draft';
+
+  document.getElementById('apItems').innerHTML = items.map((item, i) => {
+    const isAuto = item.canAutoExecute;
+    const badge = isAuto ? '<span class="badge-auto">⚙ AUTO</span>' : '<span class="badge-human">👤 HUMAN</span>';
+    const hint = isAuto ? 'Will execute immediately' : 'Will go to inbox';
+    const assigneeOptions = users.map(u =>
+      `<option value="${u.id}" ${u.id === item.assigneeId ? 'selected' : ''}>${u.displayName}${u.isBot ? ' (AI)' : ''}</option>`
+    ).join('');
+
+    const statusRow = item.status === 'executing'
+      ? '<div class="ai-status-row" id="ai-status-' + item.id + '"><div class="ai-spinner"></div> <span style="color:#e8a34a;font-size:.78rem">Executing...</span></div>'
+      : item.status === 'done' && item.outputArtifactId
+        ? `<div class="ai-status-row" id="ai-status-${item.id}"><span class="ai-done-check">✓</span> <span class="ai-artifact-link" onclick="viewArtifact('${item.outputArtifactId}')">→ View artifact</span></div>`
+        : `<div class="ai-status-row" id="ai-status-${item.id}"></div>`;
+
+    return `<div class="action-item ${item.status === 'executing' ? 'item-executing' : ''} ${item.status === 'done' ? 'item-done' : ''}" id="ai-row-${item.id}">
+      <div class="ai-top">
+        <span class="ai-order">${i + 1}.</span>
+        ${badge}
+        ${isEditable ? `<button class="ai-delete" onclick="deletePlanItem('${item.id}')">×</button>` : ''}
+      </div>
+      <div class="ai-title-wrap">
+        <span class="ai-title" ${isEditable ? `contenteditable="true" onblur="planItemEdit('${item.id}','title',this.textContent)"` : ''}>${esc(item.title)}</span>
+        <span class="ai-desc" ${isEditable ? `contenteditable="true" onblur="planItemEdit('${item.id}','description',this.textContent)"` : ''}>${esc(item.description || '')}</span>
+      </div>
+      <div class="ai-assignee-row">
+        Assigned to: <select class="ai-assignee-select" onchange="planItemReassign('${item.id}',this.value)" ${!isEditable ? 'disabled' : ''}>
+          ${assigneeOptions}
+        </select>
+        <span class="ai-hint">${hint}</span>
+      </div>
+      ${statusRow}
+    </div>`;
+  }).join('');
+
+  // Update footer based on status
+  const footer = document.getElementById('apFooter');
+  if (currentPlan.status === 'completed') {
+    footer.innerHTML = '<button style="background:#3e3f42;color:#aaa" onclick="closePlanPanel()">Close</button><span style="color:#2bac76;font-weight:700;margin-left:auto">✓ Completed</span>';
+  } else if (currentPlan.status === 'executing') {
+    footer.innerHTML = '<button style="background:#3e3f42;color:#aaa" onclick="closePlanPanel()">Close</button><span style="color:#e8a34a;font-weight:700;margin-left:auto">Executing...</span>';
+  } else {
+    footer.innerHTML = `
+      <button style="background:#3e3f42;color:#aaa" onclick="closePlanPanel()">Cancel</button>
+      <button style="background:#4a4b4e;color:#fff" onclick="savePlanChanges()">Save changes</button>
+      <button style="background:#7b61ff;color:#fff;flex:1" onclick="executePlan()">▶ Execute →</button>
+    `;
+  }
+
+  // Show/hide add button
+  document.querySelector('.ap-btn-add').style.display = isEditable ? '' : 'none';
+}
+
+function planItemEdit(itemId, field, value) {
+  if (!planEdits[itemId]) planEdits[itemId] = {};
+  planEdits[itemId][field] = value.trim();
+}
+
+async function planItemReassign(itemId, newAssigneeId) {
+  const users = await loadAllUsers();
+  const user = users.find(u => u.id === newAssigneeId);
+  const isBot = user?.isBot || AI_USERNAMES.includes(user?.username);
+  if (!planEdits[itemId]) planEdits[itemId] = {};
+  planEdits[itemId].assigneeId = newAssigneeId;
+  planEdits[itemId].canAutoExecute = isBot;
+  // Re-render to update badge
+  const item = currentPlan.items.find(it => it.id === itemId);
+  if (item) {
+    item.assigneeId = newAssigneeId;
+    item.canAutoExecute = isBot;
+    item.assignee = user;
+  }
+  renderPlanPanel();
+}
+
+async function savePlanChanges() {
+  if (!currentPlan) return;
+  for (const [itemId, edits] of Object.entries(planEdits)) {
+    try {
+      await fetch(`/api/action-plans/${currentPlan.id}/items/${itemId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(edits),
+      });
+    } catch (e) { console.error('Save item failed:', e); }
+  }
+  planEdits = {};
+  // Reload plan
+  try {
+    const r = await fetch(`/api/action-plans/${currentPlan.id}`);
+    currentPlan = await r.json();
+    renderPlanPanel();
+    showToast('Plan Saved', 'Changes saved successfully');
+  } catch (e) { console.error('Reload plan failed:', e); }
+}
+
+async function deletePlanItem(itemId) {
+  if (!currentPlan) return;
+  try {
+    await fetch(`/api/action-plans/${currentPlan.id}/items/${itemId}`, { method: 'DELETE' });
+    currentPlan.items = currentPlan.items.filter(it => it.id !== itemId);
+    delete planEdits[itemId];
+    renderPlanPanel();
+  } catch (e) { console.error('Delete item failed:', e); }
+}
+
+async function addPlanItem() {
+  if (!currentPlan) return;
+  const users = await loadAllUsers();
+  const defaultUser = users.find(u => !u.isBot) || users[0];
+  try {
+    const r = await fetch(`/api/action-plans/${currentPlan.id}/items`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: 'New task', assigneeId: defaultUser.id, canAutoExecute: false }),
+    });
+    const newItem = await r.json();
+    currentPlan.items.push(newItem);
+    renderPlanPanel();
+  } catch (e) { console.error('Add item failed:', e); }
+}
+
+async function executePlan() {
+  if (!currentPlan || !me) return;
+  // Save pending edits first
+  await savePlanChanges();
+  try {
+    await fetch(`/api/action-plans/${currentPlan.id}/execute`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ approvedById: me.id }),
+    });
+    currentPlan.status = 'executing';
+    renderPlanPanel();
+  } catch (e) { console.error('Execute plan failed:', e); }
+}
+
+/* ── ARTIFACT EDITOR ── */
+let isEditingArtifact = false;
+
+function startEditArtifact() {
+  const art = window._currentArtifact;
+  if (!art) return;
+  isEditingArtifact = true;
+  const contentEl = document.getElementById('avContent');
+  contentEl.innerHTML = `<div class="artifact-editor">
+    <textarea id="artifactEditArea">${esc(art.content)}</textarea>
+    <div class="artifact-edit-footer">Editing as ${me?.displayName || 'you'}</div>
+  </div>`;
+  const footer = document.getElementById('avFooter');
+  footer.innerHTML = `
+    <button style="background:#2bac76;color:#fff;padding:8px 16px;border-radius:8px;border:none;font-size:.82rem;font-weight:700;cursor:pointer" onclick="saveArtifactEdit()">Save</button>
+    <button style="background:#3e3f42;color:#aaa;padding:8px 16px;border-radius:8px;border:none;font-size:.82rem;font-weight:700;cursor:pointer" onclick="cancelEditArtifact()">Cancel</button>
+    <button class="inbox-btn-dismiss" onclick="closeArtifactViewer()">Close</button>
+  `;
+}
+
+async function saveArtifactEdit() {
+  const art = window._currentArtifact;
+  if (!art) return;
+  const textarea = document.getElementById('artifactEditArea');
+  const content = textarea.value;
+  try {
+    const r = await fetch(`/api/artifacts/${art.id}/content`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    });
+    const updated = await r.json();
+    window._currentArtifact = updated;
+    isEditingArtifact = false;
+    // Re-render in view mode
+    document.getElementById('avContent').innerHTML = renderMarkdown(updated.content);
+    rebuildArtifactFooter(updated);
+    showToast('Artifact Saved', 'Content updated');
+  } catch (e) { console.error('Save artifact failed:', e); }
+}
+
+function cancelEditArtifact() {
+  const art = window._currentArtifact;
+  if (!art) return;
+  isEditingArtifact = false;
+  document.getElementById('avContent').innerHTML = renderMarkdown(art.content);
+  rebuildArtifactFooter(art);
+}
+
+function rebuildArtifactFooter(art) {
+  const footer = document.getElementById('avFooter');
+  let footerHtml = '';
+  footerHtml += `<button style="background:#4a9ce8;color:#fff;padding:8px 16px;border-radius:8px;border:none;font-size:.82rem;font-weight:700;cursor:pointer" onclick="startEditArtifact()">Edit</button>`;
+  if (art.status === 'draft' || art.status === 'pending_review') {
+    footerHtml += `<button class="inbox-btn-approve" onclick="artifactAction('${art.id}','approved')">Approve</button>`;
+    footerHtml += `<button class="inbox-btn-reject" onclick="artifactAction('${art.id}','rejected')">Reject</button>`;
+  }
+  footerHtml += `<button class="inbox-btn-dismiss" onclick="downloadArtifact()">Download .md</button>`;
+  footerHtml += `<button class="inbox-btn-dismiss" onclick="closeArtifactViewer()">Close</button>`;
+  footer.innerHTML = footerHtml;
+}
+
 function renderMsg(t = '') {
   let s = esc(t);
   // Bold **text**
