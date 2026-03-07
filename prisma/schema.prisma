@@ -27,6 +27,7 @@ model User {
   assignedQuestions  BlockingQuestion[]
   createdArtifacts   Artifact[]         @relation("ArtifactCreator")
   reviewingArtifacts Artifact[]         @relation("ArtifactReviewer")
+  createdSessions    SessionThread[]
 }
 
 model UserProfile {
@@ -54,6 +55,7 @@ model Mission {
   artifacts   Artifact[]
   questions   BlockingQuestion[]
   inboxItems  InboxItem[]
+  sessions    SessionThread[]
   createdBy   User            @relation(fields: [createdById], references: [id])
 }
 
@@ -79,13 +81,17 @@ model MissionTask {
 }
 
 model Channel {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  createdAt   DateTime @default(now())
+  id            String    @id @default(cuid())
+  name          String    @unique
+  description   String?
+  isEphemeral   Boolean   @default(false)
+  expiresAt     DateTime?
+  ephemeralTag  String?
+  createdAt     DateTime  @default(now())
 
   messages       Message[]
   channelMembers ChannelMember[]
+  sessions       SessionThread[]
 }
 
 model ChannelMember {
@@ -195,4 +201,25 @@ model InboxItem {
   artifact    Artifact?         @relation(fields: [artifactId], references: [id])
   question    BlockingQuestion? @relation(fields: [questionId], references: [id])
   mission     Mission?          @relation(fields: [missionId], references: [id])
+}
+
+model SessionThread {
+  id                String    @id @default(cuid())
+  channelId         String?
+  missionId         String?
+  topicId           String?
+  type              String
+  title             String
+  status            String    @default("active")
+  ttlMinutes        Int       @default(120)
+  autoCloseAt       DateTime
+  lastActivityAt    DateTime  @default(now())
+  completedAt       DateTime?
+  artifactId        String?
+  memberIds         String
+  createdById       String
+  createdAt         DateTime  @default(now())
+  channel           Channel?  @relation(fields: [channelId], references: [id])
+  mission           Mission?  @relation(fields: [missionId], references: [id])
+  createdBy         User      @relation(fields: [createdById], references: [id])
 }

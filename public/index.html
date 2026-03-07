@@ -429,6 +429,74 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 .blocking-q-card .bq-question { color: #fff; font-size: 0.9rem; margin-bottom: 4px; }
 .blocking-q-card .bq-context { color: #888; font-size: 0.8rem; }
 
+/* ─── SESSION HEADERS ──────────────────────────────────── */
+.session-header {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+  color: #888; font-size: 0.78rem; margin: 8px 0 4px;
+}
+.session-header::before, .session-header::after {
+  content: ''; flex: 1; height: 1px; background: #3e3f42;
+}
+.session-header .sh-title { color: #fff; font-weight: 700; }
+.session-header .sh-status { color: #2bac76; }
+.session-header .sh-time { color: #888; }
+.session-completed {
+  display: flex; align-items: center; gap: 8px; padding: 8px 16px;
+  color: #616061; font-size: 0.78rem; margin: 4px 0 8px;
+}
+.session-completed::before, .session-completed::after {
+  content: ''; flex: 1; height: 1px; background: #3e3f4266;
+}
+
+/* ─── SESSIONS SIDEBAR ────────────────────────────────── */
+.sidebar-section.sessions .section-label {
+  display: flex; justify-content: space-between; align-items: center;
+}
+.session-badge-count {
+  background: #2bac76; color: #fff; font-size: 0.6rem; font-weight: 800;
+  min-width: 16px; height: 16px; border-radius: 8px; display: inline-flex;
+  align-items: center; justify-content: center; padding: 0 4px;
+}
+.session-item {
+  padding: 5px 16px; cursor: pointer; font-size: 0.82rem;
+  color: #ababad; display: flex; align-items: center; gap: 6px;
+  transition: background 0.1s; border-radius: 4px; margin: 0 4px;
+}
+.session-item:hover { background: #3e3f42; color: #d1d2d3; }
+.session-item .s-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.session-item .s-dot.active { background: #2bac76; }
+.session-item .s-dot.completed { background: #616061; }
+.session-item .s-dot.archived { background: #3e3f42; }
+.session-item .s-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-item .s-time { color: #616061; font-size: 0.68rem; flex-shrink: 0; }
+.session-item .s-close {
+  background: none; border: none; color: #616061; cursor: pointer;
+  font-size: 0.9rem; padding: 0 2px; flex-shrink: 0; opacity: 0;
+  transition: opacity 0.15s;
+}
+.session-item:hover .s-close { opacity: 1; }
+.session-item .s-close:hover { color: #e8596e; }
+.session-item .s-type-icon { font-size: 0.75rem; flex-shrink: 0; }
+
+/* ─── TEMP/EPHEMERAL CHANNELS ─────────────────────────── */
+.temp-badge {
+  display: inline-block; background: #e8a34a33; color: #e8a34a;
+  font-size: 0.55rem; padding: 1px 4px; border-radius: 3px;
+  font-weight: 700; text-transform: uppercase; margin-left: 4px; flex-shrink: 0;
+}
+.expiry-label {
+  color: #616061; font-size: 0.62rem; margin-left: auto; flex-shrink: 0;
+}
+.ch-item.ephemeral { color: #88878a; }
+.ch-item.ephemeral::before { content: '# '; opacity: 0.4; }
+.ch-item.archived-ch { text-decoration: line-through; color: #4a4b4e; }
+
+.show-archived-toggle {
+  padding: 4px 16px; font-size: 0.72rem; color: #616061;
+  cursor: pointer; transition: color 0.15s;
+}
+.show-archived-toggle:hover { color: #ababad; }
+
 /* ─── RESPONSIVE ────────────────────────────────────────── */
 @media (max-width: 640px) {
   #sidebar {
@@ -483,6 +551,15 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
     <div class="sidebar-section">
       <div class="section-label">Channels</div>
       <div id="channelList"></div>
+    </div>
+    <div class="sidebar-section sessions" id="sessionsSection" style="display:none">
+      <div class="section-label">Sessions <span class="session-badge-count hidden" id="sessionBadge">0</span></div>
+      <div id="sessionsList"></div>
+      <div class="show-archived-toggle" id="showArchivedToggle" onclick="toggleShowArchived()">Show archived</div>
+    </div>
+    <div class="sidebar-section" id="tempGroupsSection" style="display:none">
+      <div class="section-label">Temp Groups</div>
+      <div id="tempGroupsList"></div>
     </div>
     <div class="sidebar-section" id="missionsSection">
       <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;padding-right:12px">
@@ -641,6 +718,7 @@ let me = null, curCh = null, channels = [], socket = null;
 let typingTimer = null, typingMap = {};
 let lastMsgUserId = null;
 let missions = [], curMission = null, allUsersCache = [];
+let sessions = [], showArchived = false;
 
 // Restore session
 const savedUser = localStorage.getItem('sagt_user');
@@ -658,9 +736,11 @@ async function login(username, silent) {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     initSocket();
-    await Promise.all([loadChannels(), loadUsers(), loadMissions(), loadInbox()]);
+    await Promise.all([loadChannels(), loadUsers(), loadMissions(), loadInbox(), loadSessions()]);
     if (inboxInterval) clearInterval(inboxInterval);
     inboxInterval = setInterval(loadInbox, 30000);
+    // Refresh countdown displays every minute
+    setInterval(() => { renderSessions(); renderChannelList(); }, 60000);
   } catch(e) { alert('Login failed: ' + e.message); }
 }
 
@@ -710,6 +790,37 @@ function initSocket() {
       scrollBottom();
     }
   });
+  socket.on('session_created', s => {
+    sessions.push(s);
+    renderSessions();
+  });
+  socket.on('session_completed', data => {
+    const s = sessions.find(x => x.id === data.sessionId);
+    if (s) { s.status = 'completed'; s.completedAt = new Date().toISOString(); }
+    renderSessions();
+    // Render completion divider in chat
+    if (curCh) {
+      const el = document.createElement('div');
+      el.className = 'session-completed';
+      el.innerHTML = `Session completed · Decision Doc generated`;
+      document.getElementById('messages').appendChild(el);
+      scrollBottom();
+    }
+  });
+  socket.on('session_archived', data => {
+    const s = sessions.find(x => x.id === data.sessionId);
+    if (s) { s.status = 'archived'; }
+    renderSessions();
+    showToast('Session Archived', `"${data.title}" archived (${data.reason})`);
+  });
+  socket.on('channel_archived', data => {
+    showToast('Channel Archived', `Temp group #${data.name} archived`);
+    loadChannels();
+  });
+  socket.on('channel_created', ch => {
+    channels.push(ch);
+    renderChannelList();
+  });
   socket.on('typing', d => {
     if (d.userId === me?.id) return;
     if (d.isTyping) typingMap[d.userId] = d.username;
@@ -722,15 +833,48 @@ function initSocket() {
 async function loadChannels() {
   const r = await fetch('/api/channels');
   channels = await r.json();
-  document.getElementById('channelList').innerHTML = channels.map(c =>
-    `<div class="ch-item" data-id="${c.id}" onclick="switchCh('${c.id}')">${c.name}</div>`
+  renderChannelList();
+  const nonArchived = channels.filter(c => !c.name.startsWith('[archived]'));
+  if (nonArchived.length) switchCh(nonArchived.find(c=>c.name==='general')?.id || nonArchived[0].id);
+}
+
+function renderChannelList() {
+  const permanent = channels.filter(c => !c.isEphemeral && !c.name.startsWith('[archived]'));
+  const ephemeral = channels.filter(c => c.isEphemeral && !c.name.startsWith('[archived]'));
+
+  document.getElementById('channelList').innerHTML = permanent.map(c =>
+    `<div class="ch-item" data-id="${c.id}" onclick="switchCh('${c.id}')">${esc(c.name)}</div>`
   ).join('');
-  if (channels.length) switchCh(channels.find(c=>c.name==='general')?.id || channels[0].id);
+
+  // Temp groups section
+  const tempSection = document.getElementById('tempGroupsSection');
+  const tempList = document.getElementById('tempGroupsList');
+  if (ephemeral.length > 0) {
+    tempSection.style.display = '';
+    tempList.innerHTML = ephemeral.map(c => {
+      const timeLeft = c.expiresAt ? formatTimeLeft(new Date(c.expiresAt)) : '';
+      return `<div class="ch-item ephemeral" data-id="${c.id}" onclick="switchCh('${c.id}')">
+        ${esc(c.name)}<span class="temp-badge">TEMP</span><span class="expiry-label">${timeLeft}</span>
+      </div>`;
+    }).join('');
+  } else {
+    tempSection.style.display = 'none';
+  }
 }
 
 async function switchCh(id) {
   if (curCh) socket.emit('leave_channel', curCh.id);
   curCh = channels.find(c => c.id === id);
+  if (!curCh) {
+    // May be a newly created channel not yet in our list
+    try {
+      const r = await fetch('/api/channels');
+      channels = await r.json();
+      renderChannelList();
+      curCh = channels.find(c => c.id === id);
+    } catch(e) {}
+    if (!curCh) return;
+  }
   socket.emit('join_channel', id);
   // Update sidebar
   document.querySelectorAll('.ch-item').forEach(el =>
@@ -753,6 +897,7 @@ async function switchCh(id) {
   });
   scrollBottom();
   closeSidebar();
+  loadSessions();
 }
 
 /* ── USERS ── */
@@ -1442,6 +1587,93 @@ async function createTopic(missionId, title, description) {
     if (curMission?.id === missionId) openMissionPanel(missionId);
     showToast('Topic Created', title);
   } catch (e) { console.error('Create topic failed:', e); }
+}
+
+/* ── SESSIONS ── */
+async function loadSessions() {
+  try {
+    const params = new URLSearchParams();
+    if (curCh) params.set('channelId', curCh.id);
+    const r = await fetch(`/api/sessions?${params}`);
+    sessions = await r.json();
+    renderSessions();
+  } catch (e) { console.error('Load sessions failed:', e); }
+}
+
+function renderSessions() {
+  const section = document.getElementById('sessionsSection');
+  const list = document.getElementById('sessionsList');
+  const badge = document.getElementById('sessionBadge');
+
+  let filtered = sessions;
+  if (!showArchived) filtered = sessions.filter(s => s.status !== 'archived');
+
+  const activeCount = sessions.filter(s => s.status === 'active').length;
+  if (activeCount > 0) {
+    badge.textContent = activeCount;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+
+  if (filtered.length === 0 && sessions.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+
+  const typeIcons = { team_session: '\uD83E\uDD16', match_result: '\uD83C\uDFAF', topic_discussion: '\uD83D\uDCAC', ephemeral_group: '\u23F1' };
+
+  list.innerHTML = filtered.map(s => {
+    const icon = typeIcons[s.type] || '\uD83D\uDCAC';
+    const timeLeft = s.status === 'active' ? formatTimeLeft(new Date(s.autoCloseAt)) : '';
+    const statusLabel = s.status === 'completed' ? '<span style="color:#2bac76">done \u2713</span>' : (s.status === 'archived' ? '<span style="color:#616061">archived</span>' : `<span class="s-time">${timeLeft}</span>`);
+    const closeBtn = s.status !== 'archived' ? `<button class="s-close" onclick="event.stopPropagation();archiveSession('${s.id}')">\u00D7</button>` : '';
+    return `<div class="session-item" onclick="switchToSession('${s.channelId}')">
+      <span class="s-dot ${s.status}"></span>
+      <span class="s-type-icon">${icon}</span>
+      <span class="s-title">${esc(s.title)}</span>
+      ${statusLabel}
+      ${closeBtn}
+    </div>`;
+  }).join('');
+
+  // Show/hide archived toggle
+  const archivedCount = sessions.filter(s => s.status === 'archived').length;
+  document.getElementById('showArchivedToggle').style.display = archivedCount > 0 ? '' : 'none';
+  document.getElementById('showArchivedToggle').textContent = showArchived ? 'Hide archived' : `Show archived (${archivedCount})`;
+}
+
+function switchToSession(channelId) {
+  if (channelId) switchCh(channelId);
+}
+
+async function archiveSession(sessionId) {
+  try {
+    await fetch(`/api/sessions/${sessionId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'archived' }),
+    });
+    const s = sessions.find(x => x.id === sessionId);
+    if (s) s.status = 'archived';
+    renderSessions();
+  } catch (e) { console.error('Archive session failed:', e); }
+}
+
+function toggleShowArchived() {
+  showArchived = !showArchived;
+  renderSessions();
+}
+
+function formatTimeLeft(target) {
+  const diff = target - Date.now();
+  if (diff <= 0) return 'expired';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m left`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h left`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d left`;
 }
 
 /* ── HELPERS ── */

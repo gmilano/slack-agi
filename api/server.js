@@ -58,6 +58,40 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// ── Session lifecycle background job ──────────────────────
+async function runLifecycleCheck() {
+  const now = new Date();
+
+  // 1. Auto-archive inactive sessions
+  const staleSessions = await prisma.sessionThread.findMany({
+    where: { status: 'active', autoCloseAt: { lt: now } }
+  });
+  for (const s of staleSessions) {
+    await prisma.sessionThread.update({
+      where: { id: s.id },
+      data: { status: 'archived', completedAt: now }
+    });
+    if (s.channelId) {
+      io.to(s.channelId).emit('session_archived', { sessionId: s.id, title: s.title, reason: 'inactivity' });
+    }
+  }
+
+  // 2. Auto-archive expired ephemeral channels
+  const expiredChannels = await prisma.channel.findMany({
+    where: { isEphemeral: true, expiresAt: { lt: now } }
+  });
+  for (const ch of expiredChannels) {
+    if (!ch.name.startsWith('[archived]')) {
+      await prisma.channel.update({
+        where: { id: ch.id },
+        data: { name: `[archived] ${ch.name}` }
+      });
+      io.emit('channel_archived', { channelId: ch.id, name: ch.name });
+    }
+  }
+}
+setInterval(runLifecycleCheck, 5 * 60 * 1000);
+
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -369,6 +403,52 @@ app.post('/api/channels/:id/match', async (req, res) => {
 
     // Save match result as AGI message
     const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+
+    // Create ephemeral group for matched team
+    let ephemeralChannelId = null;
+    const matchedUserIds = (matchData.matches || []).map(m => m.userId).filter(Boolean);
+    if (matchedUserIds.length > 0) {
+      try {
+        const matchedUsers = await prisma.user.findMany({ where: { id: { in: matchedUserIds } } });
+        const slugNames = matchedUsers.map(u => u.username).join('-');
+        const topicSlug = problem.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30);
+        const ephName = `${slugNames}--${topicSlug}`;
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const ephChannel = await prisma.channel.create({
+          data: {
+            name: ephName,
+            description: `Matcher group for: ${problem}`,
+            isEphemeral: true,
+            expiresAt,
+            ephemeralTag: ephName,
+          },
+        });
+        ephemeralChannelId = ephChannel.id;
+        // Add members
+        for (const uid of matchedUserIds) {
+          await prisma.channelMember.create({
+            data: { channelId: ephChannel.id, userId: uid },
+          }).catch(() => {});
+        }
+        io.emit('channel_created', ephChannel);
+        // Post intro message
+        if (agiUser) {
+          const introMsg = await prisma.message.create({
+            data: {
+              content: `🎯 This group was created by the Matcher for: **${problem}**. It auto-closes in 24h or when the task is done.`,
+              userId: agiUser.id,
+              channelId: ephChannel.id,
+              isAI: true,
+            },
+            include: { user: true },
+          });
+          io.to(ephChannel.id).emit('new_message', introMsg);
+        }
+      } catch (e) {
+        console.error('Ephemeral channel creation failed:', e.message);
+      }
+    }
+
     if (agiUser) {
       const matchLines = (matchData.matches || []).map((m) => {
         const emoji = m.isBot ? '🤖' : '👤';
@@ -390,7 +470,7 @@ app.post('/api/channels/:id/match', async (req, res) => {
       io.to(req.params.id).emit('new_message', msg);
     }
 
-    res.json(matchData);
+    res.json({ ...matchData, ephemeralChannelId });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -623,6 +703,124 @@ app.post('/api/channels/:id/blocking-question', async (req, res) => {
   }
 });
 
+// ── SESSIONS ─────────────────────────────────────────────
+
+// Create a session
+app.post('/api/sessions', async (req, res) => {
+  try {
+    const { channelId, missionId, topicId, type, title, ttlMinutes = 120, memberIds, createdById } = req.body;
+    if (!type || !title || !createdById) {
+      return res.status(400).json({ error: 'type, title, createdById required' });
+    }
+    const now = new Date();
+    const autoCloseAt = new Date(now.getTime() + (ttlMinutes || 120) * 60 * 1000);
+    const session = await prisma.sessionThread.create({
+      data: {
+        channelId, missionId, topicId, type, title,
+        ttlMinutes: ttlMinutes || 120,
+        autoCloseAt,
+        memberIds: JSON.stringify(memberIds || []),
+        createdById,
+      },
+    });
+    res.json(session);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get sessions
+app.get('/api/sessions', async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.channelId) where.channelId = req.query.channelId;
+    if (req.query.status) where.status = req.query.status;
+    const sessions = await prisma.sessionThread.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(sessions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update a session
+app.patch('/api/sessions/:id', async (req, res) => {
+  try {
+    const { status, lastActivityAt } = req.body;
+    const data = {};
+    if (status) {
+      data.status = status;
+      if (status === 'completed') data.completedAt = new Date();
+    }
+    if (lastActivityAt) {
+      data.lastActivityAt = new Date(lastActivityAt);
+      // Recalculate autoCloseAt
+      const session = await prisma.sessionThread.findUnique({ where: { id: req.params.id } });
+      if (session) {
+        data.autoCloseAt = new Date(new Date(lastActivityAt).getTime() + session.ttlMinutes * 60 * 1000);
+      }
+    }
+    const session = await prisma.sessionThread.update({
+      where: { id: req.params.id },
+      data,
+    });
+    res.json(session);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── EPHEMERAL CHANNELS ──────────────────────────────────
+
+// Create ephemeral channel
+app.post('/api/channels/ephemeral', async (req, res) => {
+  try {
+    const { name, memberIds, ttlHours = 24, missionId, purpose, createdById } = req.body;
+    if (!name || !memberIds || !createdById) {
+      return res.status(400).json({ error: 'name, memberIds, createdById required' });
+    }
+    const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000);
+    const channel = await prisma.channel.create({
+      data: {
+        name,
+        description: purpose || null,
+        isEphemeral: true,
+        expiresAt,
+        ephemeralTag: name,
+      },
+    });
+    // Auto-create ChannelMember records
+    for (const userId of memberIds) {
+      await prisma.channelMember.create({
+        data: { channelId: channel.id, userId },
+      }).catch(() => {}); // ignore if already exists
+    }
+    io.emit('channel_created', channel);
+    res.json(channel);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Archive a channel
+app.delete('/api/channels/:id/archive', async (req, res) => {
+  try {
+    const channel = await prisma.channel.findUnique({ where: { id: req.params.id } });
+    if (!channel) return res.status(404).json({ error: 'Channel not found' });
+    const updatedName = channel.name.startsWith('[archived]') ? channel.name : `[archived] ${channel.name}`;
+    const updated = await prisma.channel.update({
+      where: { id: req.params.id },
+      data: { name: updatedName },
+    });
+    io.emit('channel_archived', { channelId: channel.id, name: channel.name });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Team session — multi-agent orchestrated discussion
 app.post('/api/channels/:id/team-session', async (req, res) => {
   const { topic } = req.body;
@@ -636,6 +834,29 @@ async function runTeamSession(channelId, topic) {
 
   const sequence = ['aria', 'cody', 'sage', 'rex', 'agi'];
   const sessionMsgs = []; // { name, content } for building context
+
+  // Create SessionThread
+  const agentUsers = await Promise.all(
+    sequence.map(u => prisma.user.findUnique({ where: { username: u } }))
+  );
+  const agentIds = agentUsers.filter(Boolean).map(u => u.id);
+  const agiCreator = agentUsers.find(u => u?.username === 'agi');
+  let sessionThread = null;
+  if (agiCreator) {
+    const now = new Date();
+    sessionThread = await prisma.sessionThread.create({
+      data: {
+        channelId,
+        type: 'team_session',
+        title: `Team: ${topic}`,
+        ttlMinutes: 240,
+        autoCloseAt: new Date(now.getTime() + 240 * 60 * 1000),
+        memberIds: JSON.stringify(agentIds),
+        createdById: agiCreator.id,
+      },
+    });
+    io.to(channelId).emit('session_created', sessionThread);
+  }
 
   // System announcement message
   const systemUser = await prisma.user.findFirst({ where: { username: 'agi' } });
@@ -767,9 +988,25 @@ async function runTeamSession(channelId, topic) {
         include: { user: true },
       });
       io.to(channelId).emit('new_message', notifyMsg);
+
+      // Mark session as completed
+      if (sessionThread) {
+        await prisma.sessionThread.update({
+          where: { id: sessionThread.id },
+          data: { status: 'completed', completedAt: new Date(), artifactId: artifact.id },
+        });
+        io.to(channelId).emit('session_completed', { sessionId: sessionThread.id, title: sessionThread.title });
+      }
     }
   } catch (e) {
     console.error('Decision doc generation failed:', e.message);
+    // Still try to complete the session even if doc fails
+    if (sessionThread) {
+      await prisma.sessionThread.update({
+        where: { id: sessionThread.id },
+        data: { status: 'completed', completedAt: new Date() },
+      }).catch(() => {});
+    }
   }
 }
 
