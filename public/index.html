@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Slack AGI Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1d21; color: #d1d2d3; height: 100vh; overflow: hidden; }
+
+    /* Login Screen */
+    .login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a1d21 0%, #2c2d30 100%); }
+    .login-screen h1 { font-size: 2.5rem; color: #fff; margin-bottom: 0.5rem; }
+    .login-screen p { color: #ababad; margin-bottom: 2rem; font-size: 1.1rem; }
+    .login-avatars { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
+    .avatar-btn { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; background: #2c2d30; border: 2px solid #3e3f42; border-radius: 16px; padding: 1.5rem 2rem; cursor: pointer; transition: all 0.2s; }
+    .avatar-btn:hover { border-color: #7b61ff; transform: translateY(-4px); box-shadow: 0 8px 24px rgba(123,97,255,0.2); }
+    .avatar-btn .avatar { width: 64px; height: 64px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 700; color: #fff; }
+    .avatar-btn .name { color: #fff; font-weight: 600; font-size: 0.95rem; }
+
+    /* Main Layout */
+    .app { display: flex; height: 100vh; }
+    .hidden { display: none !important; }
+
+    /* Sidebar */
+    .sidebar { width: 260px; background: #2c2d30; display: flex; flex-direction: column; flex-shrink: 0; }
+    .sidebar-header { padding: 16px 20px; border-bottom: 1px solid #3e3f42; }
+    .sidebar-header h2 { color: #fff; font-size: 1.2rem; }
+    .sidebar-section { padding: 12px 0; }
+    .sidebar-section-title { padding: 0 20px; font-size: 0.8rem; text-transform: uppercase; color: #ababad; letter-spacing: 0.05em; margin-bottom: 4px; font-weight: 600; }
+    .channel-list { list-style: none; }
+    .channel-item { padding: 6px 20px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #ababad; font-size: 0.95rem; transition: background 0.1s; }
+    .channel-item:hover { background: #3e3f42; }
+    .channel-item.active { background: #1164a3; color: #fff; }
+    .channel-item::before { content: '#'; font-weight: 700; opacity: 0.6; }
+
+    .sidebar-users { margin-top: auto; padding: 12px 0; border-top: 1px solid #3e3f42; }
+    .user-item { padding: 4px 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #ababad; }
+    .user-dot { width: 8px; height: 8px; border-radius: 50%; background: #2bac76; flex-shrink: 0; }
+
+    /* Main Area */
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+    /* Channel Header */
+    .channel-header { padding: 12px 20px; border-bottom: 1px solid #3e3f42; display: flex; align-items: center; justify-content: space-between; background: #1a1d21; flex-shrink: 0; }
+    .channel-header h3 { color: #fff; font-size: 1.1rem; }
+    .channel-header h3::before { content: '# '; color: #ababad; font-weight: 400; }
+    .channel-desc { color: #ababad; font-size: 0.8rem; margin-top: 2px; }
+    .summary-btn { background: #7b61ff; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s; }
+    .summary-btn:hover { background: #6a4ff0; }
+
+    /* Messages Area */
+    .messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 2px; }
+    .msg-group { margin-top: 12px; }
+    .msg-group:first-child { margin-top: 0; }
+    .msg-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .msg-avatar { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; color: #fff; flex-shrink: 0; }
+    .msg-author { font-weight: 700; color: #fff; font-size: 0.95rem; }
+    .msg-time { font-size: 0.75rem; color: #616061; }
+    .msg-content { padding-left: 46px; line-height: 1.5; word-wrap: break-word; }
+    .msg-content.continuation { padding-left: 46px; }
+
+    .msg-ai { border-left: 3px solid #0ea5e9; padding-left: 43px; margin-left: 0; }
+    .msg-ai .msg-header { margin-left: 0; }
+    .msg-ai .msg-content { padding-left: 46px; }
+    .msg-bot-badge { background: #0ea5e9; color: #fff; font-size: 0.65rem; padding: 1px 5px; border-radius: 3px; font-weight: 600; text-transform: uppercase; }
+
+    /* Typing Indicator */
+    .typing-indicator { padding: 4px 20px; font-size: 0.8rem; color: #ababad; height: 24px; flex-shrink: 0; }
+
+    /* Composer */
+    .composer { padding: 12px 20px 20px; flex-shrink: 0; }
+    .composer-box { background: #222529; border: 1px solid #3e3f42; border-radius: 8px; padding: 0; display: flex; transition: border-color 0.2s; }
+    .composer-box:focus-within { border-color: #7b61ff; }
+    .composer-box textarea { flex: 1; background: transparent; border: none; color: #d1d2d3; padding: 12px 14px; font-size: 0.95rem; font-family: inherit; resize: none; outline: none; max-height: 120px; line-height: 1.4; }
+    .composer-box textarea::placeholder { color: #616061; }
+
+    /* Modal */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal { background: #2c2d30; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 70vh; overflow-y: auto; }
+    .modal h3 { color: #fff; margin-bottom: 12px; font-size: 1.2rem; }
+    .modal p { line-height: 1.6; }
+    .modal-close { background: #3e3f42; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 16px; font-size: 0.9rem; }
+    .modal-close:hover { background: #4e4f52; }
+    .loading { color: #ababad; font-style: italic; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3e3f42; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+  </style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div class="login-screen" id="loginScreen">
+  <h1>Slack AGI Test</h1>
+  <p>Choose your identity</p>
+  <div class="login-avatars">
+    <div class="avatar-btn" onclick="login('alice')">
+      <div class="avatar" style="background:#e8596e;">AC</div>
+      <div class="name">Alice Chen</div>
+    </div>
+    <div class="avatar-btn" onclick="login('bob')">
+      <div class="avatar" style="background:#4a9ce8;">BM</div>
+      <div class="name">Bob Martinez</div>
+    </div>
+    <div class="avatar-btn" onclick="login('carol')">
+      <div class="avatar" style="background:#2bac76;">CZ</div>
+      <div class="name">Carol Zhang</div>
+    </div>
+    <div class="avatar-btn" onclick="login('dave')">
+      <div class="avatar" style="background:#e8a34a;">DK</div>
+      <div class="name">Dave Kumar</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div class="app hidden" id="app">
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <h2>AGI Labs &#x1F680;</h2>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Channels</div>
+      <ul class="channel-list" id="channelList"></ul>
+    </div>
+    <div class="sidebar-users" id="userList"></div>
+  </div>
+  <div class="main">
+    <div class="channel-header">
+      <div>
+        <h3 id="channelName">general</h3>
+        <div class="channel-desc" id="channelDesc"></div>
+      </div>
+      <button class="summary-btn" onclick="fetchSummary()">AI Summary</button>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="typing-indicator" id="typingIndicator"></div>
+    <div class="composer">
+      <div class="composer-box">
+        <textarea id="messageInput" rows="1" placeholder="Message #general" onkeydown="handleKey(event)"></textarea>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Modal -->
+<div class="modal-overlay hidden" id="summaryModal" onclick="closeSummary(event)">
+  <div class="modal">
+    <h3>AI Channel Summary</h3>
+    <p id="summaryContent" class="loading">Generating summary...</p>
+    <button class="modal-close" onclick="closeSummary()">Close</button>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const AVATAR_COLORS = { alice: '#e8596e', bob: '#4a9ce8', carol: '#2bac76', dave: '#e8a34a', agi: '#0ea5e9' };
+
+let currentUser = null;
+let currentChannel = null;
+let channels = [];
+let socket = null;
+let typingTimeout = null;
+let typingUsers = {};
+
+// Check for saved session
+const saved = localStorage.getItem('slack_agi_user');
+if (saved) {
+  login(saved, true);
+}
+
+async function login(username, skipSave) {
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username }),
+    });
+    currentUser = await res.json();
+    if (!skipSave) localStorage.setItem('slack_agi_user', username);
+
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('app').classList.remove('hidden');
+
+    initSocket();
+    loadChannels();
+    loadUsers();
+  } catch (err) {
+    console.error('Login failed:', err);
+  }
+}
+
+function initSocket() {
+  socket = io();
+
+  socket.on('new_message', (msg) => {
+    if (msg.channelId === currentChannel?.id) {
+      appendMessage(msg);
+      scrollToBottom();
+    }
+  });
+
+  socket.on('typing', (data) => {
+    if (data.userId === currentUser.id) return;
+    if (data.isTyping) {
+      typingUsers[data.userId] = data.username;
+    } else {
+      delete typingUsers[data.userId];
+    }
+    updateTypingIndicator();
+  });
+}
+
+async function loadChannels() {
+  const res = await fetch('/api/channels');
+  channels = await res.json();
+  const list = document.getElementById('channelList');
+  list.innerHTML = channels.map((ch) =>
+    `<li class="channel-item" data-id="${ch.id}" onclick="switchChannel('${ch.id}')">${ch.name}</li>`
+  ).join('');
+
+  if (channels.length > 0) switchChannel(channels[0].id);
+}
+
+async function loadUsers() {
+  const res = await fetch('/api/users');
+  const users = await res.json();
+  const el = document.getElementById('userList');
+  el.innerHTML = '<div class="sidebar-section-title" style="padding:0 20px;margin-bottom:4px;">People</div>' +
+    users.map((u) =>
+      `<div class="user-item"><span class="user-dot"></span>${u.displayName}${u.isBot ? ' <span style="color:#0ea5e9;font-size:0.7rem;">BOT</span>' : ''}</div>`
+    ).join('');
+}
+
+async function switchChannel(channelId) {
+  if (currentChannel) {
+    socket.emit('leave_channel', currentChannel.id);
+  }
+
+  currentChannel = channels.find((c) => c.id === channelId);
+  socket.emit('join_channel', channelId);
+
+  // Update sidebar active state
+  document.querySelectorAll('.channel-item').forEach((el) => {
+    el.classList.toggle('active', el.dataset.id === channelId);
+  });
+
+  document.getElementById('channelName').textContent = currentChannel.name;
+  document.getElementById('channelDesc').textContent = currentChannel.description || '';
+  document.getElementById('messageInput').placeholder = `Message #${currentChannel.name}`;
+
+  typingUsers = {};
+  updateTypingIndicator();
+
+  // Load messages
+  const res = await fetch(`/api/channels/${channelId}/messages?limit=50`);
+  const messages = await res.json();
+  renderMessages(messages);
+  scrollToBottom();
+}
+
+function renderMessages(messages) {
+  const container = document.getElementById('messages');
+  container.innerHTML = '';
+  let lastUserId = null;
+
+  messages.forEach((msg) => {
+    const isNewGroup = msg.userId !== lastUserId;
+    appendMessage(msg, isNewGroup);
+    lastUserId = msg.userId;
+  });
+}
+
+function appendMessage(msg, forceNewGroup) {
+  const container = document.getElementById('messages');
+  const lastMsg = container.lastElementChild;
+  const isNewGroup = forceNewGroup !== undefined ? forceNewGroup :
+    !lastMsg || lastMsg.dataset.userId !== msg.userId;
+
+  const initials = getInitials(msg.user.displayName);
+  const color = AVATAR_COLORS[msg.user.username] || '#7b61ff';
+  const isAI = msg.isAI || msg.user.isBot;
+  const timeStr = relativeTime(new Date(msg.createdAt));
+
+  const div = document.createElement('div');
+  div.dataset.userId = msg.userId;
+
+  if (isNewGroup) {
+    div.className = `msg-group${isAI ? ' msg-ai' : ''}`;
+    div.innerHTML = `
+      <div class="msg-header">
+        <div class="msg-avatar" style="background:${color}">${initials}</div>
+        <span class="msg-author">${escapeHtml(msg.user.displayName)}</span>
+        ${isAI ? '<span class="msg-bot-badge">BOT</span>' : ''}
+        <span class="msg-time">${timeStr}</span>
+      </div>
+      <div class="msg-content">${escapeHtml(msg.content)}</div>
+    `;
+  } else {
+    div.className = isAI ? 'msg-ai' : '';
+    div.innerHTML = `<div class="msg-content continuation">${escapeHtml(msg.content)}</div>`;
+  }
+
+  container.appendChild(div);
+}
+
+function getInitials(name) {
+  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function relativeTime(date) {
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return date.toLocaleDateString();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+    return;
+  }
+
+  // Typing indicator
+  if (currentChannel && currentUser) {
+    socket.emit('typing_start', { channelId: currentChannel.id, userId: currentUser.id, username: currentUser.username });
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => {
+      socket.emit('typing_stop', { channelId: currentChannel.id, userId: currentUser.id, username: currentUser.username });
+    }, 2000);
+  }
+
+  // Auto-resize textarea
+  const textarea = e.target;
+  textarea.style.height = 'auto';
+  textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+}
+
+async function sendMessage() {
+  const input = document.getElementById('messageInput');
+  const content = input.value.trim();
+  if (!content || !currentChannel) return;
+
+  input.value = '';
+  input.style.height = 'auto';
+
+  socket.emit('typing_stop', { channelId: currentChannel.id, userId: currentUser.id, username: currentUser.username });
+
+  await fetch(`/api/channels/${currentChannel.id}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, userId: currentUser.id }),
+  });
+}
+
+function updateTypingIndicator() {
+  const el = document.getElementById('typingIndicator');
+  const names = Object.values(typingUsers);
+  if (names.length === 0) {
+    el.textContent = '';
+  } else if (names.length === 1) {
+    el.textContent = `${names[0]} is typing...`;
+  } else {
+    el.textContent = `${names.join(', ')} are typing...`;
+  }
+}
+
+async function fetchSummary() {
+  if (!currentChannel) return;
+  const modal = document.getElementById('summaryModal');
+  const content = document.getElementById('summaryContent');
+  modal.classList.remove('hidden');
+  content.textContent = 'Generating summary...';
+  content.className = 'loading';
+
+  try {
+    const res = await fetch(`/api/channels/${currentChannel.id}/summary`, { method: 'POST' });
+    const data = await res.json();
+    if (data.error) {
+      content.textContent = 'Summary unavailable: ' + data.error;
+    } else {
+      content.textContent = data.summary;
+      content.className = '';
+    }
+  } catch (err) {
+    content.textContent = 'Failed to generate summary.';
+  }
+}
+
+function closeSummary(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('summaryModal').classList.add('hidden');
+}
+
+function scrollToBottom() {
+  const el = document.getElementById('messages');
+  el.scrollTop = el.scrollHeight;
+}
+</script>
+</body>
+</html>

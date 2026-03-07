@@ -1,0 +1,69 @@
+generator client {
+  provider        = "prisma-client-js"
+
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  displayName String
+  status      String   @default("online")
+  isBot       Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  messages       Message[]
+  reactions      Reaction[]
+  channelMembers ChannelMember[]
+}
+
+model Channel {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+
+  messages       Message[]
+  channelMembers ChannelMember[]
+}
+
+model ChannelMember {
+  channelId String
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@id([channelId, userId])
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  userId    String
+  channelId String
+  threadId  String?
+  isAI      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User       @relation(fields: [userId], references: [id])
+  channel   Channel    @relation(fields: [channelId], references: [id])
+  reactions Reaction[]
+}
+
+model Reaction {
+  id        String @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+
+  message Message @relation(fields: [messageId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+}
