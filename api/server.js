@@ -1555,26 +1555,13 @@ function pickRelevantAgent(content) {
 async function passiveAgentResponse(channelId, content, senderId) {
   if (!openai) return;
   try {
-    // Don't trigger on very short messages
-    if (content.trim().length < 12) return;
-
     // Don't respond if sender is a bot
     const sender = await prisma.user.findUnique({ where: { id: senderId } });
     if (sender?.isBot) return;
 
-    // Rate limit: don't pile on if bots already spoke recently
-    const recent = await prisma.message.findMany({
-      where: { channelId },
-      include: { user: true },
-      orderBy: { createdAt: 'desc' },
-      take: 4,
-    });
-    const recentBotCount = recent.filter(m => m.user.isBot).length;
-    if (recentBotCount >= 2) return;
-
-    // Detect natural team session / mission creation request
+    // Detect natural team session / mission creation request — BEFORE length check
     const teamTrigger =
-      /\b(hagamos|lancemos|arrancemos|start|let'?s (go|start|create|form|build)|create the team|form(ing)? a team|who'?s in|vamos|dale|go|listo|ok team|armemos)\b/i.test(content)
+      /\b(hagamos|lancemos|arrancemos|start|let'?s (go|start|create|form|build)|create the team|form(ing)? a team|who'?s in|vamos|dale|go|listo|ok team|armemos|let's go|lets go)\b/i.test(content)
       || /\b(hagamos|lancemos|start|arrancemos|necesito|quiero|podemos)\b.{0,50}\b(team|equipo|session|sesión|discutir|debatir|analizar|misión|mission)\b/i.test(content)
       || /\b(team session|team sobre|equipo sobre|sesión sobre|create.{0,10}team|form.{0,10}team)\b/i.test(content);
 
@@ -1616,6 +1603,16 @@ async function passiveAgentResponse(channelId, content, senderId) {
       runTeamSession(channelId, topic);
       return;
     }
+
+    // Short messages don't need passive commentary (only team triggers above bypass this)
+    if (content.trim().length < 10) return;
+
+    // Rate limit: don't pile on if bots already spoke recently
+    const recent = await prisma.message.findMany({
+      where: { channelId }, include: { user: true },
+      orderBy: { createdAt: 'desc' }, take: 4,
+    });
+    if (recent.filter(m => m.user.isBot).length >= 2) return;
 
     const agentUsername = pickRelevantAgent(content);
     if (!agentUsername) return;
