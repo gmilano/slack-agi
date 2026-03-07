@@ -140,6 +140,210 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// Get user profile
+app.get('/api/users/:id/profile', async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: {
+        profile: true,
+        missionMembers: { include: { mission: true } },
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get all active missions
+app.get('/api/missions', async (req, res) => {
+  try {
+    const missions = await prisma.mission.findMany({
+      where: { status: 'active' },
+      include: {
+        members: { include: { user: true } },
+        tasks: { include: { assignee: true } },
+        createdBy: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(missions);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Create a mission with AI team assignment
+app.post('/api/missions', async (req, res) => {
+  try {
+    const { title, objective, channelId, createdById } = req.body;
+    if (!title || !objective || !createdById) {
+      return res.status(400).json({ error: 'title, objective, and createdById required' });
+    }
+
+    const mission = await prisma.mission.create({
+      data: { title, objective, channelId, createdById },
+    });
+
+    // Fetch all user profiles for AI team assignment
+    const allUsers = await prisma.user.findMany({ include: { profile: true } });
+    const profileSummaries = allUsers
+      .filter((u) => u.profile)
+      .map((u) => `- ${u.displayName} (id: ${u.id}, bot: ${u.isBot}): skills=${u.profile.skills}, bio="${u.profile.bio}", tz=${u.profile.timezone}`)
+      .join('\n');
+
+    let members = [{ userId: createdById, role: 'lead' }];
+
+    if (openai) {
+      try {
+        const completion = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a team builder. Given a mission objective and team profiles, select the best 3-5 members (mix of humans and AI agents). Return JSON only: { "members": [{"userId": "...", "role": "lead|contributor|observer", "reason": "..."}] }',
+            },
+            {
+              role: 'user',
+              content: `Mission: "${title}"\nObjective: ${objective}\n\nAvailable team:\n${profileSummaries}`,
+            },
+          ],
+          temperature: 0.7,
+          response_format: { type: 'json_object' },
+        });
+
+        const parsed = JSON.parse(completion.choices[0].message.content);
+        if (parsed.members && Array.isArray(parsed.members)) {
+          members = parsed.members;
+        }
+      } catch (e) {
+        console.error('AI team assignment failed, using creator only:', e.message);
+      }
+    }
+
+    // Create MissionMember records
+    for (const m of members) {
+      const userExists = allUsers.some((u) => u.id === m.userId);
+      if (!userExists) continue;
+      await prisma.missionMember.upsert({
+        where: { missionId_userId: { missionId: mission.id, userId: m.userId } },
+        update: { role: m.role },
+        create: { missionId: mission.id, userId: m.userId, role: m.role },
+      });
+    }
+
+    const fullMission = await prisma.mission.findUnique({
+      where: { id: mission.id },
+      include: {
+        members: { include: { user: { include: { profile: true } } } },
+        tasks: true,
+        createdBy: true,
+      },
+    });
+
+    io.emit('mission_created', fullMission);
+    res.json(fullMission);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Match agent — find ideal team for a problem
+app.post('/api/channels/:id/match', async (req, res) => {
+  try {
+    const { problem, requesterId } = req.body;
+    if (!problem) return res.status(400).json({ error: 'problem required' });
+
+    const allUsers = await prisma.user.findMany({ include: { profile: true } });
+    const profileSummaries = allUsers
+      .filter((u) => u.profile)
+      .map((u) => `- ${u.displayName} (id: ${u.id}, username: ${u.username}, bot: ${u.isBot}): skills=${u.profile.skills}, bio="${u.profile.bio}"`)
+      .join('\n');
+
+    let matchData = { matches: [], summary: 'AI not configured' };
+
+    if (openai) {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a team matcher. Given a problem and team profiles (humans and AI agents), identify who should be involved and why. Consider that AI agents are always available. Return JSON only: { "matches": [{"userId": "...", "displayName": "...", "username": "...", "role": "...", "reason": "...", "isBot": true/false}], "summary": "..." }',
+          },
+          {
+            role: 'user',
+            content: `Problem: "${problem}"\n\nTeam profiles:\n${profileSummaries}`,
+          },
+        ],
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+      });
+
+      matchData = JSON.parse(completion.choices[0].message.content);
+    }
+
+    // Save match result as AGI message
+    const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+    if (agiUser) {
+      const matchLines = (matchData.matches || []).map((m) => {
+        const emoji = m.isBot ? '🤖' : '👤';
+        return `${emoji} **${m.displayName}** \`${m.role}\` — ${m.reason}`;
+      }).join('\n');
+
+      const msgContent = `🎯 **Team Match for:** ${problem}\n\n${matchLines}\n\n${matchData.summary || ''}`;
+
+      const msg = await prisma.message.create({
+        data: {
+          content: msgContent,
+          userId: agiUser.id,
+          channelId: req.params.id,
+          isAI: true,
+        },
+        include: { user: true },
+      });
+
+      io.to(req.params.id).emit('new_message', msg);
+    }
+
+    res.json(matchData);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update mission task status
+app.patch('/api/missions/:id/tasks/:taskId', async (req, res) => {
+  try {
+    const { status } = req.body;
+    const task = await prisma.missionTask.update({
+      where: { id: req.params.taskId },
+      data: { status },
+      include: { assignee: true },
+    });
+    io.emit('task_updated', { missionId: req.params.id, task });
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Add task to mission
+app.post('/api/missions/:id/tasks', async (req, res) => {
+  try {
+    const { title, assigneeId } = req.body;
+    const task = await prisma.missionTask.create({
+      data: { missionId: req.params.id, title, assigneeId },
+      include: { assignee: true },
+    });
+    io.emit('task_created', { missionId: req.params.id, task });
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Team session — multi-agent orchestrated discussion
 app.post('/api/channels/:id/team-session', async (req, res) => {
   const { topic } = req.body;
@@ -170,6 +374,12 @@ async function runTeamSession(channelId, topic) {
     await sleep(600);
   }
 
+  // Fetch human team context for this channel
+  const humanContext = await buildTeamContext(channelId);
+  const humanContextBlock = humanContext
+    ? `\n\nHUMAN TEAM CONTEXT:\n${humanContext}\nReference specific humans by name when their skills are relevant.`
+    : '';
+
   for (const username of sequence) {
     // Natural delay between agents
     await sleep(username === 'aria' ? 1200 : 1800 + Math.random() * 1200);
@@ -191,7 +401,7 @@ async function runTeamSession(channelId, topic) {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: def.system },
+        { role: 'system', content: def.system + humanContextBlock },
         { role: 'user', content: userPrompt },
       ],
       max_tokens: 180,
@@ -247,6 +457,26 @@ app.post('/api/channels/:id/summary', async (req, res) => {
   }
 });
 
+// Helper: build team context from channel participants
+async function buildTeamContext(channelId) {
+  const recentMessages = await prisma.message.findMany({
+    where: { channelId },
+    include: { user: true },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+  const userIds = [...new Set(recentMessages.map((m) => m.userId))];
+  const profiles = await prisma.userProfile.findMany({
+    where: { userId: { in: userIds } },
+    include: { user: true },
+  });
+  if (profiles.length === 0) return '';
+  const lines = profiles
+    .filter((p) => !p.user.isBot)
+    .map((p) => `${p.user.displayName} (skills: ${p.skills}): ${p.bio}`);
+  return lines.length > 0 ? `TEAM CONTEXT:\n${lines.join('\n')}` : '';
+}
+
 // Handle @agi mentions
 async function handleAgiMention(channelId, userMessage) {
   if (!openai) return;
@@ -269,13 +499,14 @@ async function handleAgiMention(channelId, userMessage) {
       .map((m) => `${m.user.displayName}: ${m.content}`)
       .join('\n');
 
+    const teamContext = await buildTeamContext(channelId);
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content:
-            'You are AGI, a brilliant AI assistant in a Slack channel. Be helpful, insightful, slightly snarky about being better than Slack.',
+          content: `You are AGI, a brilliant AI assistant in a Slack channel. Be helpful, insightful, slightly snarky about being better than Slack. You know your team members and can reference their specific skills and backgrounds when relevant.\n\n${teamContext}`,
         },
         {
           role: 'user',

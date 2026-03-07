@@ -16,9 +16,58 @@ model User {
   isBot       Boolean  @default(false)
   createdAt   DateTime @default(now())
 
-  messages       Message[]
-  reactions      Reaction[]
-  channelMembers ChannelMember[]
+  messages        Message[]
+  reactions       Reaction[]
+  channelMembers  ChannelMember[]
+  profile         UserProfile?
+  missionsCreated Mission[]
+  missionMembers  MissionMember[]
+  assignedTasks   MissionTask[]
+}
+
+model UserProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  bio          String   @default("")
+  skills       String   // JSON array stored as string
+  timezone     String   @default("UTC")
+  availability String   @default("available")
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model Mission {
+  id          String          @id @default(cuid())
+  title       String
+  objective   String
+  status      String          @default("active")
+  channelId   String?
+  createdById String
+  createdAt   DateTime        @default(now())
+  members     MissionMember[]
+  tasks       MissionTask[]
+  createdBy   User            @relation(fields: [createdById], references: [id])
+}
+
+model MissionMember {
+  missionId String
+  userId    String
+  role      String   @default("contributor")
+  joinedAt  DateTime @default(now())
+  mission   Mission  @relation(fields: [missionId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+  @@id([missionId, userId])
+}
+
+model MissionTask {
+  id         String   @id @default(cuid())
+  missionId  String
+  title      String
+  status     String   @default("todo")
+  assigneeId String?
+  createdAt  DateTime @default(now())
+  mission    Mission  @relation(fields: [missionId], references: [id])
+  assignee   User?    @relation(fields: [assigneeId], references: [id])
 }
 
 model Channel {

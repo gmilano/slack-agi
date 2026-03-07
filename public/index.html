@@ -187,6 +187,99 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 .modal-box .summary-text { line-height: 1.65; font-size: 0.9rem; white-space: pre-wrap; }
 .modal-close { margin-top: 16px; background: #3e3f42; color: #fff; border: none; padding: 9px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; width: 100%; }
 
+/* ─── MISSIONS ─────────────────────────────────────────── */
+.mission-item {
+  padding: 7px 16px; cursor: pointer; font-size: 0.88rem;
+  color: #ababad; display: flex; align-items: center; gap: 6px;
+  transition: background 0.1s; border-radius: 4px; margin: 0 4px;
+}
+.mission-item:hover { background: #3e3f42; color: #d1d2d3; }
+.mission-item.active { background: #1164a3; color: #fff; }
+.mission-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.mission-dot.active { background: #2bac76; }
+.mission-dot.paused { background: #e8a34a; }
+.mission-dot.completed { background: #616061; }
+
+/* ─── PROFILE CARD ─────────────────────────────────────── */
+.profile-card {
+  position: fixed; z-index: 200; background: #2c2d30; border: 1px solid #4a4b4e;
+  border-radius: 12px; padding: 16px; width: 280px; box-shadow: 0 8px 30px rgba(0,0,0,.5);
+}
+.profile-card .pc-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.profile-card .pc-av { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 800; color: #fff; }
+.profile-card .pc-name { color: #fff; font-weight: 700; font-size: 0.95rem; }
+.profile-card .pc-tz { color: #888; font-size: 0.72rem; }
+.profile-card .pc-bio { color: #aaa; font-size: 0.82rem; line-height: 1.45; margin-bottom: 8px; }
+.skill-tag {
+  display: inline-block; background: #3e3f42; color: #d1d2d3; font-size: 0.7rem;
+  padding: 2px 8px; border-radius: 10px; margin: 2px 2px; font-weight: 600;
+}
+.pc-missions { margin-top: 8px; }
+.pc-missions-label { color: #888; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+.pc-mission-name { color: #7b61ff; font-size: 0.78rem; }
+
+/* ─── MATCH CARD ───────────────────────────────────────── */
+.match-card { background: #222529; border: 1px solid #3e3f42; border-radius: 10px; padding: 12px; margin-top: 6px; }
+.match-header { color: #7b61ff; font-weight: 700; font-size: 0.9rem; margin-bottom: 8px; }
+.match-entry { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; }
+.match-entry .match-icon { font-size: 1rem; flex-shrink: 0; }
+.match-entry .match-name { color: #fff; font-weight: 700; font-size: 0.85rem; }
+.match-entry .match-role-tag {
+  display: inline-block; background: #7b61ff33; color: #7b61ff; font-size: 0.65rem;
+  padding: 1px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase;
+  margin-left: 4px;
+}
+.match-entry .match-reason { color: #aaa; font-size: 0.8rem; }
+.match-summary { color: #888; font-size: 0.82rem; margin-top: 8px; padding-top: 8px; border-top: 1px solid #3e3f42; }
+
+/* ─── MISSION PANEL ────────────────────────────────────── */
+.mission-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 360px; max-width: 100vw;
+  background: #2c2d30; border-left: 1px solid #3e3f42; z-index: 50;
+  transform: translateX(100%); transition: transform 0.25s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.mission-panel.open { transform: translateX(0); }
+.mp-header { padding: 14px 16px; border-bottom: 1px solid #3e3f42; display: flex; align-items: center; justify-content: space-between; }
+.mp-header h3 { color: #fff; font-size: 1rem; font-weight: 700; margin: 0; }
+.mp-close { background: none; border: none; color: #888; font-size: 1.4rem; cursor: pointer; }
+.mp-body { flex: 1; overflow-y: auto; padding: 16px; }
+.mp-objective { color: #aaa; font-size: 0.85rem; line-height: 1.5; margin-bottom: 16px; }
+.mp-section-label { color: #888; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.05em; }
+.mp-member { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.mp-member-av { width: 26px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; font-weight: 800; color: #fff; }
+.mp-member-name { color: #d1d2d3; font-size: 0.85rem; }
+.mp-member-role { color: #888; font-size: 0.7rem; }
+.task-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0;
+  border-bottom: 1px solid #3e3f4233;
+}
+.task-item input[type="checkbox"] { accent-color: #7b61ff; width: 16px; height: 16px; cursor: pointer; }
+.task-item .task-title { color: #d1d2d3; font-size: 0.85rem; flex: 1; }
+.task-item .task-title.done { text-decoration: line-through; color: #616061; }
+.task-item .task-status-tag { font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; font-weight: 700; text-transform: uppercase; }
+.task-status-tag.todo { background: #3e3f42; color: #aaa; }
+.task-status-tag.doing { background: #e8a34a33; color: #e8a34a; }
+.task-status-tag.done { background: #2bac7633; color: #2bac76; }
+.mp-add-task { display: flex; gap: 6px; margin-top: 10px; }
+.mp-add-task input {
+  flex: 1; background: #1a1d21; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 7px 10px; border-radius: 6px; font-size: 0.82rem; outline: none;
+}
+.mp-add-task button {
+  background: #7b61ff; border: none; color: #fff; padding: 7px 12px;
+  border-radius: 6px; font-size: 0.78rem; font-weight: 700; cursor: pointer;
+}
+
+/* ─── CREATE MISSION MODAL ─────────────────────────────── */
+#createMissionModal .modal-box { max-width: 440px; }
+#createMissionModal input, #createMissionModal textarea {
+  width: 100%; background: #1a1d21; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 10px 12px; border-radius: 8px; font-size: 0.9rem; outline: none;
+  font-family: inherit; margin-bottom: 10px;
+}
+#createMissionModal textarea { resize: vertical; min-height: 70px; }
+
 /* ─── RESPONSIVE ────────────────────────────────────────── */
 @media (max-width: 640px) {
   #sidebar {
@@ -241,6 +334,12 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
     <div class="sidebar-section">
       <div class="section-label">Channels</div>
       <div id="channelList"></div>
+    </div>
+    <div class="sidebar-section" id="missionsSection">
+      <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;padding-right:12px">
+        Missions <button onclick="openCreateMission()" style="background:#7b61ff;border:none;color:#fff;border-radius:4px;padding:1px 7px;cursor:pointer;font-size:.8rem">+</button>
+      </div>
+      <div id="missionsList"></div>
     </div>
     <div class="sidebar-users">
       <div class="section-label">People</div>
@@ -301,6 +400,42 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
   </div>
 </div>
 
+<!-- MISSION PANEL -->
+<div class="mission-panel" id="missionPanel">
+  <div class="mp-header">
+    <h3 id="mpTitle">Mission</h3>
+    <button class="mp-close" onclick="closeMissionPanel()">&times;</button>
+  </div>
+  <div class="mp-body">
+    <div class="mp-objective" id="mpObjective"></div>
+    <div class="mp-section-label">Team</div>
+    <div id="mpMembers" style="margin-bottom:16px"></div>
+    <div class="mp-section-label">Tasks</div>
+    <div id="mpTasks"></div>
+    <div class="mp-add-task">
+      <input id="mpNewTask" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addMissionTask()">
+      <button onclick="addMissionTask()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE MISSION MODAL -->
+<div class="modal-bg hidden" id="createMissionModal" onclick="if(event.target===this)closeCreateMission()">
+  <div class="modal-box">
+    <h3>🚀 Create Mission</h3>
+    <p style="color:#888;font-size:.82rem;margin-bottom:12px">AI will auto-assign the best team based on profiles</p>
+    <input id="missionTitleInput" type="text" placeholder="Mission title">
+    <textarea id="missionObjInput" placeholder="What's the objective? Be specific..."></textarea>
+    <div style="display:flex;gap:8px">
+      <button class="modal-close" style="flex:1" onclick="closeCreateMission()">Cancel</button>
+      <button class="modal-close" style="flex:2;background:#7b61ff" onclick="submitCreateMission()">🚀 Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROFILE CARD (dynamically positioned) -->
+<div class="profile-card hidden" id="profileCard"></div>
+
 <script src="/socket.io/socket.io.js"></script>
 <script>
 const AGENT_META = {
@@ -319,6 +454,7 @@ const AV_COLORS = Object.fromEntries(Object.entries(AGENT_META).map(([k,v]) => [
 let me = null, curCh = null, channels = [], socket = null;
 let typingTimer = null, typingMap = {};
 let lastMsgUserId = null;
+let missions = [], curMission = null, allUsersCache = [];
 
 // Restore session
 const savedUser = localStorage.getItem('sagt_user');
@@ -336,7 +472,7 @@ async function login(username, silent) {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     initSocket();
-    await Promise.all([loadChannels(), loadUsers()]);
+    await Promise.all([loadChannels(), loadUsers(), loadMissions()]);
   } catch(e) { alert('Login failed: ' + e.message); }
 }
 
@@ -353,6 +489,9 @@ function initSocket() {
     appendMsg(msg, !isCont);
     scrollBottom();
   });
+  socket.on('mission_created', () => loadMissions());
+  socket.on('task_updated', () => { if (curMission) openMissionPanel(curMission.id); });
+  socket.on('task_created', () => { if (curMission) openMissionPanel(curMission.id); });
   socket.on('typing', d => {
     if (d.userId === me?.id) return;
     if (d.isTyping) typingMap[d.userId] = d.username;
@@ -420,7 +559,7 @@ function appendMsg(msg, isNewGroup, noScroll) {
   const color = meta.color || '#7b61ff';
   const initials = (msg.user?.displayName || '?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   const timeStr = relTime(new Date(msg.createdAt));
-  const text = esc(msg.content);
+  const text = renderMsg(msg.content);
   const roleBadge = meta.role
     ? `<span class="role-badge">${meta.role}</span>`
     : (isAI ? '<span class="bot-badge">BOT</span>' : '');
@@ -435,7 +574,7 @@ function appendMsg(msg, isNewGroup, noScroll) {
         <div class="msg-av" style="background:${color}">${initials}</div>
         <div>
           <div class="msg-meta">
-            <span class="msg-name">${esc(msg.user?.displayName||'?')}</span>
+            <span class="msg-name" style="cursor:pointer" onclick="showProfile('${msg.userId}', event)">${esc(msg.user?.displayName||'?')}</span>
             ${roleBadge}
             <span class="msg-time">${timeStr}</span>
           </div>
@@ -466,6 +605,33 @@ async function sendMsg() {
       input.style.height = 'auto';
       startTeamSession(topic);
       return;
+    }
+  }
+
+  // /match command
+  if (content.toLowerCase().startsWith('/match ')) {
+    const problem = content.slice(7).trim();
+    if (problem && curCh) {
+      input.value = '';
+      input.style.height = 'auto';
+      runMatch(problem);
+      return;
+    }
+  }
+
+  // /mission command
+  if (content.toLowerCase().startsWith('/mission ')) {
+    const parts = content.slice(9).trim();
+    const sep = parts.indexOf('|');
+    if (sep > 0) {
+      const title = parts.slice(0, sep).trim();
+      const objective = parts.slice(sep + 1).trim();
+      if (title && objective) {
+        input.value = '';
+        input.style.height = 'auto';
+        createMission(title, objective);
+        return;
+      }
     }
   }
 
@@ -568,6 +734,167 @@ input.addEventListener('input', () => {
   input.style.height = Math.min(input.scrollHeight, 140) + 'px';
 });
 
+/* ── MISSIONS ── */
+async function loadMissions() {
+  try {
+    const r = await fetch('/api/missions');
+    missions = await r.json();
+    const list = document.getElementById('missionsList');
+    list.innerHTML = missions.map(m =>
+      `<div class="mission-item" data-mid="${m.id}" onclick="openMissionPanel('${m.id}')">
+        <span class="mission-dot ${m.status}"></span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(m.title)}</span>
+        <span style="color:#616061;font-size:.7rem">${m.members?.length || 0}</span>
+      </div>`
+    ).join('');
+  } catch (e) { console.error('Load missions failed:', e); }
+}
+
+function openMissionPanel(id) {
+  const m = missions.find(x => x.id === id);
+  if (!m) return;
+  curMission = m;
+  document.getElementById('mpTitle').textContent = m.title;
+  document.getElementById('mpObjective').textContent = m.objective;
+
+  document.getElementById('mpMembers').innerHTML = (m.members || []).map(mm => {
+    const u = mm.user;
+    const meta = AGENT_META[u?.username] || {};
+    const color = meta.color || '#7b61ff';
+    const initials = (u?.displayName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    return `<div class="mp-member">
+      <div class="mp-member-av" style="background:${color}">${initials}</div>
+      <span class="mp-member-name">${esc(u?.displayName)}</span>
+      <span class="mp-member-role">${mm.role}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('mpTasks').innerHTML = (m.tasks || []).map(t =>
+    `<div class="task-item">
+      <input type="checkbox" ${t.status === 'done' ? 'checked' : ''} onchange="toggleTask('${m.id}','${t.id}', this.checked)">
+      <span class="task-title ${t.status === 'done' ? 'done' : ''}">${esc(t.title)}</span>
+      <span class="task-status-tag ${t.status}">${t.status}</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('missionPanel').classList.add('open');
+}
+
+function closeMissionPanel() {
+  document.getElementById('missionPanel').classList.remove('open');
+  curMission = null;
+}
+
+async function toggleTask(missionId, taskId, checked) {
+  const status = checked ? 'done' : 'todo';
+  try {
+    await fetch(`/api/missions/${missionId}/tasks/${taskId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    await loadMissions();
+    if (curMission) openMissionPanel(missionId);
+  } catch (e) { console.error('Toggle task failed:', e); }
+}
+
+async function addMissionTask() {
+  if (!curMission) return;
+  const input = document.getElementById('mpNewTask');
+  const title = input.value.trim();
+  if (!title) return;
+  input.value = '';
+  try {
+    await fetch(`/api/missions/${curMission.id}/tasks`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title })
+    });
+    await loadMissions();
+    openMissionPanel(curMission.id);
+  } catch (e) { console.error('Add task failed:', e); }
+}
+
+/* ── CREATE MISSION ── */
+function openCreateMission() {
+  document.getElementById('createMissionModal').classList.remove('hidden');
+  document.getElementById('missionTitleInput').focus();
+}
+function closeCreateMission() {
+  document.getElementById('createMissionModal').classList.add('hidden');
+  document.getElementById('missionTitleInput').value = '';
+  document.getElementById('missionObjInput').value = '';
+}
+async function submitCreateMission() {
+  const title = document.getElementById('missionTitleInput').value.trim();
+  const objective = document.getElementById('missionObjInput').value.trim();
+  if (!title || !objective) return;
+  closeCreateMission();
+  await createMission(title, objective);
+}
+async function createMission(title, objective) {
+  try {
+    const r = await fetch('/api/missions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, objective, channelId: curCh?.id, createdById: me.id })
+    });
+    const m = await r.json();
+    await loadMissions();
+    if (m.id) openMissionPanel(m.id);
+  } catch (e) { console.error('Create mission failed:', e); }
+}
+
+/* ── MATCH ── */
+async function runMatch(problem) {
+  if (!curCh || !me) return;
+  try {
+    await fetch(`/api/channels/${curCh.id}/match`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ problem, requesterId: me.id })
+    });
+  } catch (e) { console.error('Match failed:', e); }
+}
+
+/* ── PROFILE CARD ── */
+async function showProfile(userId, evt) {
+  evt.stopPropagation();
+  const card = document.getElementById('profileCard');
+  card.classList.add('hidden');
+
+  try {
+    const r = await fetch(`/api/users/${userId}/profile`);
+    const u = await r.json();
+    const p = u.profile;
+    const meta = AGENT_META[u.username] || {};
+    const color = meta.color || '#7b61ff';
+    const initials = (u.displayName || '?').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    const skills = p ? JSON.parse(p.skills || '[]') : [];
+    const missionNames = (u.missionMembers || []).map(mm => mm.mission?.title).filter(Boolean);
+
+    card.innerHTML = `
+      <div class="pc-header">
+        <div class="pc-av" style="background:${color}">${initials}</div>
+        <div>
+          <div class="pc-name">${esc(u.displayName)} ${u.isBot ? '<span class="bot-badge">BOT</span>' : ''}</div>
+          <div class="pc-tz">${p?.timezone || 'UTC'} · ${p?.availability || 'available'}</div>
+        </div>
+      </div>
+      <div class="pc-bio">${esc(p?.bio || 'No bio yet')}</div>
+      <div>${skills.map(s => `<span class="skill-tag">${esc(s)}</span>`).join('')}</div>
+      ${missionNames.length ? `<div class="pc-missions"><div class="pc-missions-label">Missions</div>${missionNames.map(n => `<div class="pc-mission-name">${esc(n)}</div>`).join('')}</div>` : ''}
+    `;
+
+    // Position near click
+    const rect = evt.target.getBoundingClientRect();
+    card.style.top = Math.min(rect.bottom + 6, window.innerHeight - 300) + 'px';
+    card.style.left = Math.min(rect.left, window.innerWidth - 296) + 'px';
+    card.classList.remove('hidden');
+  } catch (e) { console.error('Profile load failed:', e); }
+}
+
+// Close profile card on click outside
+document.addEventListener('click', () => {
+  document.getElementById('profileCard').classList.add('hidden');
+});
+
 /* ── HELPERS ── */
 function scrollBottom() {
   const el = document.getElementById('messages');
@@ -582,6 +909,16 @@ function relTime(d) {
 }
 function esc(t = '') {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function renderMsg(t = '') {
+  let s = esc(t);
+  // Bold **text**
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fff">$1</strong>');
+  // Inline code `text`
+  s = s.replace(/`([^`]+)`/g, '<code style="background:#3e3f42;padding:1px 5px;border-radius:3px;font-size:.85em">$1</code>');
+  // Newlines
+  s = s.replace(/\n/g, '<br>');
+  return s;
 }
 </script>
 </body>

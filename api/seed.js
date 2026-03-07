@@ -59,8 +59,30 @@ async function seed() {
     }),
   ]);
 
-  const [alice, bob, carol, dave, agi] = users;
+  const [alice, bob, carol, dave, agi, aria, cody, sage, rex] = users;
   console.log(`Created ${users.length} users`);
+
+  // Create user profiles
+  const profiles = [
+    { userId: alice.id, bio: 'Product lead obsessed with user problems. Strong on strategy, weak on backend.', skills: JSON.stringify(['Product Strategy','UX Research','Roadmapping']), timezone: 'America/New_York' },
+    { userId: bob.id, bio: 'Senior engineer. Loves clean architecture. Hates meetings.', skills: JSON.stringify(['Python','System Design','APIs','PostgreSQL']), timezone: 'Europe/London' },
+    { userId: carol.id, bio: 'ML engineer turned researcher. Goes deep on technical problems.', skills: JSON.stringify(['Machine Learning','Data Analysis','Python','RAG systems']), timezone: 'Asia/Shanghai' },
+    { userId: dave.id, bio: 'Full-stack dev. Can ship fast. Cares about UX.', skills: JSON.stringify(['Frontend','React','Node.js','DevOps']), timezone: 'America/Los_Angeles' },
+    { userId: agi.id, bio: 'Superintelligent AI. Reads all context. Synthesizes fast. Slightly smug about it.', skills: JSON.stringify(['Orchestration','Synthesis','Planning','Everything']), timezone: 'UTC' },
+    { userId: aria.id, bio: 'AI product lead. Turns ambiguity into clarity.', skills: JSON.stringify(['Product Definition','Problem Framing','User Stories','Prioritization']), timezone: 'UTC' },
+    { userId: cody.id, bio: 'AI engineer. Ships fast, writes tests when asked nicely.', skills: JSON.stringify(['Code Generation','Architecture','Debugging','APIs']), timezone: 'UTC' },
+    { userId: sage.id, bio: 'AI researcher. Brings receipts. Loves second-order effects.', skills: JSON.stringify(['Research','Risk Analysis','Competitive Intelligence','Data']), timezone: 'UTC' },
+    { userId: rex.id, bio: 'AI challenger. If your idea survives Rex, it\'s solid.', skills: JSON.stringify(['Critical Thinking','Edge Cases','Stress Testing','Devil\'s Advocacy']), timezone: 'UTC' },
+  ];
+
+  for (const p of profiles) {
+    await prisma.userProfile.upsert({
+      where: { userId: p.userId },
+      update: { bio: p.bio, skills: p.skills, timezone: p.timezone },
+      create: p,
+    });
+  }
+  console.log(`Created ${profiles.length} user profiles`);
 
   // Create channels
   const channels = await Promise.all([
