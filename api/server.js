@@ -237,10 +237,22 @@ app.post('/api/channels/:id/messages', async (req, res) => {
     // Check for @agi mention
     if (content.toLowerCase().includes('@agi')) {
       handleAgiMention(req.params.id, content);
-    } else {
-      // Passive agent participation — agents chime in naturally
-      passiveAgentResponse(req.params.id, content, userId);
+      return;
     }
+
+    // Direct team trigger check in route handler (most reliable)
+    const isTeamTrigger =
+      /\b(hagamos|lancemos|arrancemos|let.?s (go|create|form|start|build)|create.{0,5}team|form.{0,5}team|who.?s in|vamos|dale|listo|armemos|lets go)\b/i.test(content)
+      || /\b(hagamos|lancemos|start|arrancemos|necesito|quiero|podemos)\b.{0,50}\b(team|equipo|session|sesión|analizar|misión|mission)\b/i.test(content);
+
+    if (isTeamTrigger) {
+      console.log('[ROUTE] Team trigger detected:', content);
+      launchTeamFromContext(req.params.id, content, userId);
+      return;
+    }
+
+    // Passive agent participation
+    passiveAgentResponse(req.params.id, content, userId);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1541,6 +1553,52 @@ app.patch('/api/artifacts/:id/content', async (req, res) => {
   }
 });
 
+// ── TEAM LAUNCH FROM NATURAL LANGUAGE ───────────────────────
+async function launchTeamFromContext(channelId, content, senderId) {
+  if (!openai) return;
+  try {
+    const sender = await prisma.user.findUnique({ where: { id: senderId } });
+    if (sender?.isBot) return;
+
+    const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+    const recentCtx = await prisma.message.findMany({
+      where: { channelId }, include: { user: true },
+      orderBy: { createdAt: 'desc' }, take: 10,
+    });
+    const ctxText = recentCtx.reverse().map(m => `${m.user.displayName}: ${m.content}`).join('\n');
+
+    let topic = 'el tema de la conversación';
+    try {
+      const t = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: 'Extract the main topic or decision being discussed. Return only a short phrase (5-8 words max). No quotes, no punctuation at end.' },
+          { role: 'user', content: `Context:\n${ctxText}\n\nSomeone said: "${content}"\n\nWhat is the topic?` }
+        ],
+        max_tokens: 25,
+      });
+      topic = t.choices[0].message.content.trim().replace(/['"]/g, '');
+    } catch(e) { console.error('Topic extract error:', e.message); }
+
+    console.log('[TEAM LAUNCH] topic:', topic);
+
+    if (agiUser) {
+      const announce = await prisma.message.create({
+        data: {
+          content: `🤖 **Convocando al equipo** — "${topic}"\nAria, Cody, Sage, Rex están en camino...`,
+          userId: agiUser.id, channelId, isAI: true
+        },
+        include: { user: true },
+      });
+      io.to(channelId).emit('new_message', announce);
+    }
+    await sleep(600);
+    runTeamSession(channelId, topic);
+  } catch(e) {
+    console.error('[TEAM LAUNCH] error:', e.message);
+  }
+}
+
 // ── PASSIVE AGENT RESPONSES ─────────────────────────────────
 function pickRelevantAgent(content) {
   const t = content.toLowerCase();
@@ -1566,8 +1624,10 @@ async function passiveAgentResponse(channelId, content, senderId) {
       || /\b(team session|team sobre|equipo sobre|sesión sobre|create.{0,10}team|form.{0,10}team)\b/i.test(content);
 
     if (teamTrigger) {
+      console.log('[TEAM TRIGGER] detected:', content.slice(0, 40));
       await sleep(1200);
       const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+      console.log('[TEAM TRIGGER] agiUser:', agiUser?.username);
 
       // Pull context from recent messages to build the topic
       const recentCtx = await prisma.message.findMany({
