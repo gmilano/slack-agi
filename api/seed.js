@@ -35,11 +35,27 @@ async function seed() {
     prisma.user.upsert({
       where: { username: 'agi' },
       update: {},
-      create: {
-        username: 'agi',
-        displayName: 'AGI Bot',
-        isBot: true,
-      },
+      create: { username: 'agi', displayName: 'AGI Bot', isBot: true },
+    }),
+    prisma.user.upsert({
+      where: { username: 'aria' },
+      update: {},
+      create: { username: 'aria', displayName: 'Aria', isBot: true },
+    }),
+    prisma.user.upsert({
+      where: { username: 'cody' },
+      update: {},
+      create: { username: 'cody', displayName: 'Cody', isBot: true },
+    }),
+    prisma.user.upsert({
+      where: { username: 'sage' },
+      update: {},
+      create: { username: 'sage', displayName: 'Sage', isBot: true },
+    }),
+    prisma.user.upsert({
+      where: { username: 'rex' },
+      update: {},
+      create: { username: 'rex', displayName: 'Rex', isBot: true },
     }),
   ]);
 

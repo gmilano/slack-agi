@@ -108,6 +108,13 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 }
 .btn-summary:hover { background: #6a4ff0; }
 .btn-summary:active { transform: scale(0.97); }
+.btn-team {
+  background: #2c2d30; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  font-weight: 700; flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+}
+.btn-team:hover { background: #3e3f42; border-color: #7b61ff; color: #fff; }
+.btn-team:active { transform: scale(0.97); }
 
 /* Messages */
 .messages {
@@ -130,6 +137,7 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 .msg-name { font-weight: 700; color: #fff; font-size: 0.93rem; }
 .msg-time { font-size: 0.72rem; color: #616061; }
 .bot-badge { background: #0ea5e9; color: #fff; font-size: 0.62rem; padding: 1px 5px; border-radius: 3px; font-weight: 700; text-transform: uppercase; vertical-align: middle; }
+.role-badge { background: #2c2d30; border: 1px solid #4a4b4e; color: #aaa; font-size: 0.62rem; padding: 1px 6px; border-radius: 3px; font-weight: 600; vertical-align: middle; letter-spacing: 0.02em; }
 .msg-body { padding-left: 44px; line-height: 1.55; font-size: 0.93rem; word-break: break-word; }
 .msg-body a { color: #7b61ff; }
 .msg-cont { padding: 2px 16px 2px 60px; font-size: 0.93rem; line-height: 1.55; word-break: break-word; }
@@ -248,7 +256,8 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
         <div class="ch-title" id="chName">general</div>
         <div class="ch-desc" id="chDesc"></div>
       </div>
-      <button class="btn-summary" onclick="showSummary()">✦ AI Summary</button>
+      <button class="btn-team" onclick="openTeamModal()">⚡ Team</button>
+      <button class="btn-summary" onclick="showSummary()">✦ Summary</button>
     </div>
 
     <div class="messages" id="messages"></div>
@@ -263,6 +272,26 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
   </div>
 </div>
 
+<!-- TEAM MODAL -->
+<div class="modal-bg hidden" id="teamModal" onclick="if(event.target===this)closeTeamModal()">
+  <div class="modal-box">
+    <h3>⚡ Start Team Session</h3>
+    <p style="color:#888;font-size:.85rem;margin-bottom:12px;">Los agentes analizan el tema en tiempo real: Aria → Cody → Sage → Rex → AGI</p>
+    <input
+      id="teamTopicInput"
+      type="text"
+      placeholder="e.g. Should we build a mobile app or go web-first?"
+      style="width:100%;background:#1a1d21;border:1px solid #4a4b4e;color:#d1d2d3;padding:10px 12px;border-radius:8px;font-size:.9rem;outline:none;margin-bottom:12px;"
+      onkeydown="if(event.key==='Enter')submitTeamSession();if(event.key==='Escape')closeTeamModal()"
+    >
+    <div style="display:flex;gap:8px;">
+      <button class="modal-close" style="flex:1" onclick="closeTeamModal()">Cancel</button>
+      <button class="modal-close" style="flex:2;background:#7b61ff" onclick="submitTeamSession()">⚡ Launch</button>
+    </div>
+    <p style="color:#555;font-size:.75rem;margin-top:12px;">Tip: también podés escribir <code style="color:#7b61ff">/team tu pregunta</code> directo en el composer</p>
+  </div>
+</div>
+
 <!-- SUMMARY MODAL -->
 <div class="modal-bg hidden" id="summaryModal" onclick="closeSummary(event)">
   <div class="modal-box">
@@ -274,7 +303,19 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const AV_COLORS = { alice:'#e8596e', bob:'#4a9ce8', carol:'#2bac76', dave:'#e8a34a', agi:'#0ea5e9' };
+const AGENT_META = {
+  alice: { color: '#e8596e' },
+  bob:   { color: '#4a9ce8' },
+  carol: { color: '#2bac76' },
+  dave:  { color: '#e8a34a' },
+  agi:   { color: '#0ea5e9', role: 'Orchestrator' },
+  aria:  { color: '#e8596e', role: 'Product Lead' },
+  cody:  { color: '#4a9ce8', role: 'Engineering' },
+  sage:  { color: '#2bac76', role: 'Research' },
+  rex:   { color: '#e8a34a', role: "Devil's Advocate" },
+};
+// Keep AV_COLORS as alias for backwards compat
+const AV_COLORS = Object.fromEntries(Object.entries(AGENT_META).map(([k,v]) => [k, v.color]));
 let me = null, curCh = null, channels = [], socket = null;
 let typingTimer = null, typingMap = {};
 let lastMsgUserId = null;
@@ -373,11 +414,16 @@ async function loadUsers() {
 /* ── MESSAGES ── */
 function appendMsg(msg, isNewGroup, noScroll) {
   const container = document.getElementById('messages');
+  const uname = msg.user?.username || '';
+  const meta = AGENT_META[uname] || {};
   const isAI = msg.isAI || msg.user?.isBot;
-  const color = AV_COLORS[msg.user?.username] || '#7b61ff';
+  const color = meta.color || '#7b61ff';
   const initials = (msg.user?.displayName || '?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   const timeStr = relTime(new Date(msg.createdAt));
   const text = esc(msg.content);
+  const roleBadge = meta.role
+    ? `<span class="role-badge">${meta.role}</span>`
+    : (isAI ? '<span class="bot-badge">BOT</span>' : '');
 
   const el = document.createElement('div');
 
@@ -390,7 +436,7 @@ function appendMsg(msg, isNewGroup, noScroll) {
         <div>
           <div class="msg-meta">
             <span class="msg-name">${esc(msg.user?.displayName||'?')}</span>
-            ${isAI ? '<span class="bot-badge">BOT</span>' : ''}
+            ${roleBadge}
             <span class="msg-time">${timeStr}</span>
           </div>
           <div class="msg-body">${text}</div>
@@ -412,6 +458,17 @@ async function sendMsg() {
   const content = input.value.trim();
   if (!content || !curCh || !me) return;
 
+  // /team command
+  if (content.toLowerCase().startsWith('/team ')) {
+    const topic = content.slice(6).trim();
+    if (topic) {
+      input.value = '';
+      input.style.height = 'auto';
+      startTeamSession(topic);
+      return;
+    }
+  }
+
   input.value = '';
   input.style.height = 'auto';
   document.getElementById('btnSend').disabled = true;
@@ -428,6 +485,32 @@ async function sendMsg() {
   }
   document.getElementById('btnSend').disabled = false;
   input.focus();
+}
+
+/* ── TEAM SESSION ── */
+async function startTeamSession(topic) {
+  if (!curCh) return;
+  try {
+    await fetch(`/api/channels/${curCh.id}/team-session`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ topic, userId: me?.id })
+    });
+  } catch(e) { console.error('Team session failed:', e); }
+}
+
+function openTeamModal() {
+  document.getElementById('teamModal').classList.remove('hidden');
+  document.getElementById('teamTopicInput').focus();
+}
+function closeTeamModal() {
+  document.getElementById('teamModal').classList.add('hidden');
+  document.getElementById('teamTopicInput').value = '';
+}
+function submitTeamSession() {
+  const topic = document.getElementById('teamTopicInput').value.trim();
+  if (!topic) return;
+  closeTeamModal();
+  startTeamSession(topic);
 }
 
 /* ── TYPING ── */
