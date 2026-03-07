@@ -288,6 +288,8 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
   position: relative;
 }
 .btn-inbox:hover { background: #3e3f42; border-color: #7b61ff; color: #fff; }
+.btn-inbox.has-items { border-color: #e8596e; color: #fff; background: #2c2d30; animation: inboxPulse 2s ease-in-out infinite; }
+@keyframes inboxPulse { 0%,100% { border-color: #e8596e; } 50% { border-color: #ff8a95; box-shadow: 0 0 8px rgba(232,89,110,.4); } }
 .inbox-badge {
   position: absolute; top: -6px; right: -6px; background: #e8596e;
   color: #fff; font-size: 0.6rem; font-weight: 800; min-width: 16px;
@@ -962,7 +964,16 @@ function initSocket() {
     btn.classList.add('has-plan');
     const badge = document.getElementById('planBadge');
     badge.classList.remove('hidden');
-    showToast('📋 Action Plan Ready', plan.title);
+    showToast('📋 Action Plan Ready — click Plan to review & execute', plan.title);
+    // Auto-open the plan panel after a short delay
+    setTimeout(() => {
+      const panel = document.getElementById('actionPlanPanel');
+      if (!panel.classList.contains('open')) {
+        panel.classList.add('open');
+        document.getElementById('planBadge').classList.add('hidden');
+        renderPlanPanel();
+      }
+    }, 1200);
   });
   socket.on('item_executing', data => {
     const el = document.getElementById(`ai-status-${data.itemId}`);
@@ -1533,12 +1544,15 @@ async function loadInbox() {
 
 function updateInboxBadge() {
   const badge = document.getElementById('inboxBadge');
+  const btn = document.querySelector('.btn-inbox');
   const count = inboxItems.length;
   if (count > 0) {
     badge.textContent = count;
     badge.classList.remove('hidden');
+    btn?.classList.add('has-items');
   } else {
     badge.classList.add('hidden');
+    btn?.classList.remove('has-items');
   }
 }
 

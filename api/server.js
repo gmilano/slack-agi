@@ -237,6 +237,9 @@ app.post('/api/channels/:id/messages', async (req, res) => {
     // Check for @agi mention
     if (content.toLowerCase().includes('@agi')) {
       handleAgiMention(req.params.id, content);
+    } else {
+      // Passive agent participation — agents chime in naturally
+      passiveAgentResponse(req.params.id, content, userId);
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1537,6 +1540,103 @@ app.patch('/api/artifacts/:id/content', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ── PASSIVE AGENT RESPONSES ─────────────────────────────────
+function pickRelevantAgent(content) {
+  const t = content.toLowerCase();
+  if (/código|code|api|arquitectura|architect|implement|backend|frontend|deploy|bug|fix|server/i.test(t)) return 'cody';
+  if (/research|datos|data|competidor|mercado|market|estudio|análisis|analysis/i.test(t)) return 'sage';
+  if (/usuario|user|producto|product|feature|roadmap|prioridad|ux|diseño/i.test(t)) return 'aria';
+  if (/problema|risk|riesgo|preocupa|concern|falla|issue|pero|aunque|sin embargo/i.test(t)) return 'rex';
+  if (Math.random() < 0.25) return 'agi'; // 25% chance AGI adds something
+  return null;
+}
+
+async function passiveAgentResponse(channelId, content, senderId) {
+  if (!openai) return;
+  try {
+    // Don't trigger on very short messages
+    if (content.trim().length < 12) return;
+
+    // Don't respond if sender is a bot
+    const sender = await prisma.user.findUnique({ where: { id: senderId } });
+    if (sender?.isBot) return;
+
+    // Rate limit: don't pile on if bots already spoke recently
+    const recent = await prisma.message.findMany({
+      where: { channelId },
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take: 4,
+    });
+    const recentBotCount = recent.filter(m => m.user.isBot).length;
+    if (recentBotCount >= 2) return;
+
+    // Detect natural team session request
+    const teamTrigger = /\b(hagamos|lancemos|start|arrancemos|necesito|quiero|podemos)\b.{0,40}\b(team|equipo|session|sesión|discutir|debatir|analizar)\b/i.test(content)
+      || /\b(team session|team sobre|equipo sobre|sesión sobre)\b/i.test(content);
+
+    if (teamTrigger) {
+      await sleep(1500);
+      runTeamSession(channelId, content);
+      // Announce it
+      const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+      if (agiUser) {
+        const announce = await prisma.message.create({
+          data: { content: `🤖 Detecté que querés una team session sobre esto. Convocando al equipo...`, userId: agiUser.id, channelId, isAI: true },
+          include: { user: true },
+        });
+        io.to(channelId).emit('new_message', announce);
+      }
+      return;
+    }
+
+    const agentUsername = pickRelevantAgent(content);
+    if (!agentUsername) return;
+
+    const agentUser = await prisma.user.findUnique({ where: { username: agentUsername } });
+    if (!agentUser) return;
+    const def = AGENT_DEFS[agentUsername];
+
+    // Natural delay
+    await sleep(2500 + Math.random() * 2000);
+
+    const msgContext = await prisma.message.findMany({
+      where: { channelId },
+      include: { user: true },
+      orderBy: { createdAt: 'desc' },
+      take: 12,
+    });
+    const context = msgContext.reverse().map(m => `${m.user.displayName}: ${m.content}`).join('\n');
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `${def.system}\n\nYou're a member of a Slack channel. Respond ONLY if you have something genuinely useful to add — a concrete insight, a concern, or relevant info from your area. If the conversation doesn't need your input right now, respond with exactly "PASS". Max 2-3 sentences. Natural, direct tone.`
+        },
+        {
+          role: 'user',
+          content: `Conversation:\n${context}\n\nDo you want to add something? (PASS if not needed)`
+        }
+      ],
+      max_tokens: 100,
+      temperature: 0.75,
+    });
+
+    const response = completion.choices[0].message.content.trim();
+    if (!response || response.toUpperCase().startsWith('PASS')) return;
+
+    const msg = await prisma.message.create({
+      data: { content: response, userId: agentUser.id, channelId, isAI: true },
+      include: { user: true },
+    });
+    io.to(channelId).emit('new_message', msg);
+  } catch (err) {
+    console.error('Passive agent error:', err.message);
+  }
+}
 
 // Socket.io
 io.on('connection', (socket) => {
