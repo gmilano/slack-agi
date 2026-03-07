@@ -1,412 +1,504 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Slack AGI Test</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1d21; color: #d1d2d3; height: 100vh; overflow: hidden; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Slack AGI Test</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; overflow: hidden; }
 
-    /* Login Screen */
-    .login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: linear-gradient(135deg, #1a1d21 0%, #2c2d30 100%); }
-    .login-screen h1 { font-size: 2.5rem; color: #fff; margin-bottom: 0.5rem; }
-    .login-screen p { color: #ababad; margin-bottom: 2rem; font-size: 1.1rem; }
-    .login-avatars { display: flex; gap: 1.5rem; flex-wrap: wrap; justify-content: center; }
-    .avatar-btn { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; background: #2c2d30; border: 2px solid #3e3f42; border-radius: 16px; padding: 1.5rem 2rem; cursor: pointer; transition: all 0.2s; }
-    .avatar-btn:hover { border-color: #7b61ff; transform: translateY(-4px); box-shadow: 0 8px 24px rgba(123,97,255,0.2); }
-    .avatar-btn .avatar { width: 64px; height: 64px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 700; color: #fff; }
-    .avatar-btn .name { color: #fff; font-weight: 600; font-size: 0.95rem; }
+.hidden { display: none !important; }
 
-    /* Main Layout */
-    .app { display: flex; height: 100vh; }
-    .hidden { display: none !important; }
+/* ─── LOGIN ─────────────────────────────────────────────── */
+#loginScreen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; min-height: 100vh; padding: 24px;
+  background: linear-gradient(160deg, #1a1d21 0%, #2c2d30 100%);
+  gap: 24px;
+}
+#loginScreen h1 { font-size: 1.8rem; color: #fff; font-weight: 800; letter-spacing: -0.5px; }
+#loginScreen h1 span { color: #7b61ff; }
+#loginScreen p { color: #888; font-size: 0.95rem; }
+.login-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; max-width: 340px; }
+.login-card {
+  background: #2c2d30; border: 2px solid #3e3f42; border-radius: 14px;
+  padding: 18px 12px; cursor: pointer; transition: all 0.2s;
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.login-card:hover, .login-card:active { border-color: #7b61ff; background: #35373b; transform: scale(1.02); }
+.login-card .av {
+  width: 52px; height: 52px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; font-weight: 800; color: #fff;
+}
+.login-card .lname { color: #fff; font-weight: 600; font-size: 0.88rem; text-align: center; }
 
-    /* Sidebar */
-    .sidebar { width: 260px; background: #2c2d30; display: flex; flex-direction: column; flex-shrink: 0; }
-    .sidebar-header { padding: 16px 20px; border-bottom: 1px solid #3e3f42; }
-    .sidebar-header h2 { color: #fff; font-size: 1.2rem; }
-    .sidebar-section { padding: 12px 0; }
-    .sidebar-section-title { padding: 0 20px; font-size: 0.8rem; text-transform: uppercase; color: #ababad; letter-spacing: 0.05em; margin-bottom: 4px; font-weight: 600; }
-    .channel-list { list-style: none; }
-    .channel-item { padding: 6px 20px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: #ababad; font-size: 0.95rem; transition: background 0.1s; }
-    .channel-item:hover { background: #3e3f42; }
-    .channel-item.active { background: #1164a3; color: #fff; }
-    .channel-item::before { content: '#'; font-weight: 700; opacity: 0.6; }
+/* ─── APP SHELL ─────────────────────────────────────────── */
+#app {
+  display: flex; height: 100dvh; height: 100vh;
+  position: relative; overflow: hidden;
+}
 
-    .sidebar-users { margin-top: auto; padding: 12px 0; border-top: 1px solid #3e3f42; }
-    .user-item { padding: 4px 20px; display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: #ababad; }
-    .user-dot { width: 8px; height: 8px; border-radius: 50%; background: #2bac76; flex-shrink: 0; }
+/* ─── SIDEBAR ───────────────────────────────────────────── */
+#sidebar {
+  width: 260px; background: #2c2d30; flex-shrink: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  transition: transform 0.25s ease;
+  z-index: 20;
+}
+.sidebar-top {
+  padding: 14px 16px; border-bottom: 1px solid #3e3f42;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.workspace-name { color: #fff; font-weight: 800; font-size: 1rem; }
+.btn-close-sidebar {
+  display: none; background: none; border: none; color: #888;
+  font-size: 1.4rem; cursor: pointer; padding: 2px 6px;
+}
+.sidebar-section { padding: 10px 0; }
+.section-label {
+  padding: 4px 16px; font-size: 0.73rem; font-weight: 700;
+  text-transform: uppercase; color: #888; letter-spacing: 0.07em;
+  margin-bottom: 2px;
+}
+.ch-item {
+  padding: 7px 16px; cursor: pointer; font-size: 0.92rem;
+  color: #ababad; display: flex; align-items: center; gap: 4px;
+  transition: background 0.1s; border-radius: 4px; margin: 0 4px;
+}
+.ch-item::before { content: '#'; opacity: 0.6; flex-shrink: 0; }
+.ch-item:hover { background: #3e3f42; color: #d1d2d3; }
+.ch-item.active { background: #1164a3; color: #fff; font-weight: 600; }
+.sidebar-users { margin-top: auto; border-top: 1px solid #3e3f42; padding: 8px 0 12px; }
+.u-item {
+  padding: 5px 16px; font-size: 0.85rem; color: #ababad;
+  display: flex; align-items: center; gap: 8px;
+}
+.u-dot { width: 8px; height: 8px; border-radius: 50%; background: #2bac76; flex-shrink: 0; }
+.u-dot.bot { background: #0ea5e9; }
+.bot-tag { color: #0ea5e9; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; }
 
-    /* Main Area */
-    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+/* Mobile overlay behind sidebar */
+#sidebarOverlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+  z-index: 15;
+}
 
-    /* Channel Header */
-    .channel-header { padding: 12px 20px; border-bottom: 1px solid #3e3f42; display: flex; align-items: center; justify-content: space-between; background: #1a1d21; flex-shrink: 0; }
-    .channel-header h3 { color: #fff; font-size: 1.1rem; }
-    .channel-header h3::before { content: '# '; color: #ababad; font-weight: 400; }
-    .channel-desc { color: #ababad; font-size: 0.8rem; margin-top: 2px; }
-    .summary-btn { background: #7b61ff; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: background 0.2s; }
-    .summary-btn:hover { background: #6a4ff0; }
+/* ─── MAIN ──────────────────────────────────────────────── */
+.main { flex: 1; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 
-    /* Messages Area */
-    .messages { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 2px; }
-    .msg-group { margin-top: 12px; }
-    .msg-group:first-child { margin-top: 0; }
-    .msg-header { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
-    .msg-avatar { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: 700; color: #fff; flex-shrink: 0; }
-    .msg-author { font-weight: 700; color: #fff; font-size: 0.95rem; }
-    .msg-time { font-size: 0.75rem; color: #616061; }
-    .msg-content { padding-left: 46px; line-height: 1.5; word-wrap: break-word; }
-    .msg-content.continuation { padding-left: 46px; }
+.ch-header {
+  padding: 12px 16px; border-bottom: 1px solid #3e3f42;
+  background: #1a1d21; flex-shrink: 0;
+  display: flex; align-items: center; gap: 12px;
+}
+.btn-menu {
+  display: none; background: none; border: none; color: #ababad;
+  font-size: 1.3rem; cursor: pointer; padding: 2px 6px; flex-shrink: 0;
+}
+.ch-header-info { flex: 1; min-width: 0; }
+.ch-title { color: #fff; font-weight: 700; font-size: 1rem; }
+.ch-title::before { content: '# '; color: #ababad; font-weight: 400; }
+.ch-desc { color: #888; font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+.btn-summary {
+  background: #7b61ff; color: #fff; border: none; padding: 6px 12px;
+  border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 700;
+  flex-shrink: 0; transition: background 0.15s; white-space: nowrap;
+}
+.btn-summary:hover { background: #6a4ff0; }
+.btn-summary:active { transform: scale(0.97); }
 
-    .msg-ai { border-left: 3px solid #0ea5e9; padding-left: 43px; margin-left: 0; }
-    .msg-ai .msg-header { margin-left: 0; }
-    .msg-ai .msg-content { padding-left: 46px; }
-    .msg-bot-badge { background: #0ea5e9; color: #fff; font-size: 0.65rem; padding: 1px 5px; border-radius: 3px; font-weight: 600; text-transform: uppercase; }
+/* Messages */
+.messages {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 12px 0; display: flex; flex-direction: column;
+  -webkit-overflow-scrolling: touch;
+}
+.messages::-webkit-scrollbar { width: 4px; }
+.messages::-webkit-scrollbar-thumb { background: #3e3f42; border-radius: 2px; }
 
-    /* Typing Indicator */
-    .typing-indicator { padding: 4px 20px; font-size: 0.8rem; color: #ababad; height: 24px; flex-shrink: 0; }
+.msg-group { padding: 4px 16px; }
+.msg-group:hover { background: rgba(255,255,255,.03); }
+.msg-top { display: flex; align-items: flex-start; gap: 10px; }
+.msg-av {
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.82rem; font-weight: 800; color: #fff; margin-top: 1px;
+}
+.msg-meta { display: flex; align-items: baseline; gap: 7px; margin-bottom: 3px; }
+.msg-name { font-weight: 700; color: #fff; font-size: 0.93rem; }
+.msg-time { font-size: 0.72rem; color: #616061; }
+.bot-badge { background: #0ea5e9; color: #fff; font-size: 0.62rem; padding: 1px 5px; border-radius: 3px; font-weight: 700; text-transform: uppercase; vertical-align: middle; }
+.msg-body { padding-left: 44px; line-height: 1.55; font-size: 0.93rem; word-break: break-word; }
+.msg-body a { color: #7b61ff; }
+.msg-cont { padding: 2px 16px 2px 60px; font-size: 0.93rem; line-height: 1.55; word-break: break-word; }
+.msg-cont:hover { background: rgba(255,255,255,.03); }
+.msg-ai-group { border-left: 3px solid #0ea5e9; margin-left: 0; }
+.msg-ai-cont { border-left: 3px solid #0ea5e9; }
 
-    /* Composer */
-    .composer { padding: 12px 20px 20px; flex-shrink: 0; }
-    .composer-box { background: #222529; border: 1px solid #3e3f42; border-radius: 8px; padding: 0; display: flex; transition: border-color 0.2s; }
-    .composer-box:focus-within { border-color: #7b61ff; }
-    .composer-box textarea { flex: 1; background: transparent; border: none; color: #d1d2d3; padding: 12px 14px; font-size: 0.95rem; font-family: inherit; resize: none; outline: none; max-height: 120px; line-height: 1.4; }
-    .composer-box textarea::placeholder { color: #616061; }
+.typing-bar { height: 22px; padding: 0 16px; font-size: 0.78rem; color: #888; flex-shrink: 0; }
 
-    /* Modal */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; }
-    .modal { background: #2c2d30; border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 70vh; overflow-y: auto; }
-    .modal h3 { color: #fff; margin-bottom: 12px; font-size: 1.2rem; }
-    .modal p { line-height: 1.6; }
-    .modal-close { background: #3e3f42; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; margin-top: 16px; font-size: 0.9rem; }
-    .modal-close:hover { background: #4e4f52; }
-    .loading { color: #ababad; font-style: italic; }
+/* Composer */
+.composer { padding: 8px 12px 16px; flex-shrink: 0; }
+.composer-inner {
+  background: #222529; border: 1px solid #4a4b4e;
+  border-radius: 10px; display: flex; align-items: flex-end;
+  gap: 0; transition: border-color 0.2s;
+}
+.composer-inner:focus-within { border-color: #7b61ff; }
+#msgInput {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: #d1d2d3; font-family: inherit; font-size: 0.95rem;
+  padding: 11px 12px; resize: none; max-height: 140px; line-height: 1.45;
+}
+#msgInput::placeholder { color: #616061; }
+.btn-send {
+  width: 38px; height: 38px; margin: 4px 4px 4px 0; border-radius: 8px;
+  border: none; background: #7b61ff; color: #fff; cursor: pointer;
+  flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 1.1rem; transition: all 0.15s; align-self: flex-end; margin-bottom: 4px;
+}
+.btn-send:hover { background: #6a4ff0; }
+.btn-send:active { transform: scale(0.9); }
+.btn-send:disabled { opacity: 0.4; cursor: default; }
 
-    /* Scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: #3e3f42; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #555; }
-  </style>
+/* ─── SUMMARY MODAL ─────────────────────────────────────── */
+.modal-bg {
+  position: fixed; inset: 0; background: rgba(0,0,0,.75);
+  z-index: 100; display: flex; align-items: flex-end;
+  padding: 0;
+}
+@media (min-width: 640px) { .modal-bg { align-items: center; padding: 20px; } }
+.modal-box {
+  background: #2c2d30; width: 100%; border-radius: 16px 16px 0 0;
+  padding: 20px; max-height: 70dvh; overflow-y: auto;
+}
+@media (min-width: 640px) { .modal-box { border-radius: 14px; max-width: 560px; max-height: 70vh; } }
+.modal-box h3 { color: #fff; font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+.modal-box .summary-text { line-height: 1.65; font-size: 0.9rem; white-space: pre-wrap; }
+.modal-close { margin-top: 16px; background: #3e3f42; color: #fff; border: none; padding: 9px 20px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; width: 100%; }
+
+/* ─── RESPONSIVE ────────────────────────────────────────── */
+@media (max-width: 640px) {
+  #sidebar {
+    position: fixed; top: 0; bottom: 0; left: 0;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 20px rgba(0,0,0,.5);
+  }
+  #sidebar.open { transform: translateX(0); }
+  #sidebarOverlay.open { display: block; }
+  .btn-menu { display: block; }
+  .btn-close-sidebar { display: block; }
+}
+</style>
 </head>
 <body>
 
-<!-- Login Screen -->
-<div class="login-screen" id="loginScreen">
-  <h1>Slack AGI Test</h1>
+<!-- LOGIN -->
+<div id="loginScreen">
+  <h1>Slack <span>AGI</span> Test</h1>
   <p>Choose your identity</p>
-  <div class="login-avatars">
-    <div class="avatar-btn" onclick="login('alice')">
-      <div class="avatar" style="background:#e8596e;">AC</div>
-      <div class="name">Alice Chen</div>
+  <div class="login-grid">
+    <div class="login-card" onclick="login('alice')">
+      <div class="av" style="background:#e8596e">AC</div>
+      <div class="lname">Alice Chen</div>
     </div>
-    <div class="avatar-btn" onclick="login('bob')">
-      <div class="avatar" style="background:#4a9ce8;">BM</div>
-      <div class="name">Bob Martinez</div>
+    <div class="login-card" onclick="login('bob')">
+      <div class="av" style="background:#4a9ce8">BM</div>
+      <div class="lname">Bob Martinez</div>
     </div>
-    <div class="avatar-btn" onclick="login('carol')">
-      <div class="avatar" style="background:#2bac76;">CZ</div>
-      <div class="name">Carol Zhang</div>
+    <div class="login-card" onclick="login('carol')">
+      <div class="av" style="background:#2bac76">CZ</div>
+      <div class="lname">Carol Zhang</div>
     </div>
-    <div class="avatar-btn" onclick="login('dave')">
-      <div class="avatar" style="background:#e8a34a;">DK</div>
-      <div class="name">Dave Kumar</div>
+    <div class="login-card" onclick="login('dave')">
+      <div class="av" style="background:#e8a34a">DK</div>
+      <div class="lname">Dave Kumar</div>
     </div>
   </div>
 </div>
 
-<!-- Main App -->
-<div class="app hidden" id="app">
-  <div class="sidebar">
-    <div class="sidebar-header">
-      <h2>AGI Labs &#x1F680;</h2>
+<!-- APP -->
+<div id="app" class="hidden">
+  <!-- Sidebar overlay (mobile) -->
+  <div id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sidebar-top">
+      <span class="workspace-name">AGI Labs 🚀</span>
+      <button class="btn-close-sidebar" onclick="closeSidebar()">×</button>
     </div>
     <div class="sidebar-section">
-      <div class="sidebar-section-title">Channels</div>
-      <ul class="channel-list" id="channelList"></ul>
+      <div class="section-label">Channels</div>
+      <div id="channelList"></div>
     </div>
-    <div class="sidebar-users" id="userList"></div>
+    <div class="sidebar-users">
+      <div class="section-label">People</div>
+      <div id="userList"></div>
+    </div>
   </div>
+
+  <!-- Main -->
   <div class="main">
-    <div class="channel-header">
-      <div>
-        <h3 id="channelName">general</h3>
-        <div class="channel-desc" id="channelDesc"></div>
+    <div class="ch-header">
+      <button class="btn-menu" onclick="openSidebar()">☰</button>
+      <div class="ch-header-info">
+        <div class="ch-title" id="chName">general</div>
+        <div class="ch-desc" id="chDesc"></div>
       </div>
-      <button class="summary-btn" onclick="fetchSummary()">AI Summary</button>
+      <button class="btn-summary" onclick="showSummary()">✦ AI Summary</button>
     </div>
+
     <div class="messages" id="messages"></div>
-    <div class="typing-indicator" id="typingIndicator"></div>
+    <div class="typing-bar" id="typingBar"></div>
+
     <div class="composer">
-      <div class="composer-box">
-        <textarea id="messageInput" rows="1" placeholder="Message #general" onkeydown="handleKey(event)"></textarea>
+      <div class="composer-inner">
+        <textarea id="msgInput" rows="1" placeholder="Message #general"></textarea>
+        <button class="btn-send" id="btnSend" onclick="sendMsg()">↑</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Summary Modal -->
-<div class="modal-overlay hidden" id="summaryModal" onclick="closeSummary(event)">
-  <div class="modal">
-    <h3>AI Channel Summary</h3>
-    <p id="summaryContent" class="loading">Generating summary...</p>
+<!-- SUMMARY MODAL -->
+<div class="modal-bg hidden" id="summaryModal" onclick="closeSummary(event)">
+  <div class="modal-box">
+    <h3>✦ AI Channel Summary</h3>
+    <div class="summary-text" id="summaryText">Generating…</div>
     <button class="modal-close" onclick="closeSummary()">Close</button>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
-const AVATAR_COLORS = { alice: '#e8596e', bob: '#4a9ce8', carol: '#2bac76', dave: '#e8a34a', agi: '#0ea5e9' };
+const AV_COLORS = { alice:'#e8596e', bob:'#4a9ce8', carol:'#2bac76', dave:'#e8a34a', agi:'#0ea5e9' };
+let me = null, curCh = null, channels = [], socket = null;
+let typingTimer = null, typingMap = {};
+let lastMsgUserId = null;
 
-let currentUser = null;
-let currentChannel = null;
-let channels = [];
-let socket = null;
-let typingTimeout = null;
-let typingUsers = {};
+// Restore session
+const savedUser = localStorage.getItem('sagt_user');
+if (savedUser) login(savedUser, true);
 
-// Check for saved session
-const saved = localStorage.getItem('slack_agi_user');
-if (saved) {
-  login(saved, true);
-}
-
-async function login(username, skipSave) {
+/* ── AUTH ── */
+async function login(username, silent) {
   try {
     const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username }),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ username })
     });
-    currentUser = await res.json();
-    if (!skipSave) localStorage.setItem('slack_agi_user', username);
-
+    me = await res.json();
+    if (!silent) localStorage.setItem('sagt_user', username);
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
-
     initSocket();
-    loadChannels();
-    loadUsers();
-  } catch (err) {
-    console.error('Login failed:', err);
-  }
+    await Promise.all([loadChannels(), loadUsers()]);
+  } catch(e) { alert('Login failed: ' + e.message); }
 }
 
+/* ── SOCKET ── */
 function initSocket() {
-  socket = io();
-
-  socket.on('new_message', (msg) => {
-    if (msg.channelId === currentChannel?.id) {
-      appendMessage(msg);
-      scrollToBottom();
-    }
+  socket = io({ transports: ['websocket','polling'] });
+  socket.on('connect', () => {
+    if (curCh) socket.emit('join_channel', curCh.id);
   });
-
-  socket.on('typing', (data) => {
-    if (data.userId === currentUser.id) return;
-    if (data.isTyping) {
-      typingUsers[data.userId] = data.username;
-    } else {
-      delete typingUsers[data.userId];
-    }
-    updateTypingIndicator();
+  socket.on('new_message', msg => {
+    if (msg.channelId !== curCh?.id) return;
+    const isCont = msg.userId === lastMsgUserId;
+    lastMsgUserId = msg.userId;
+    appendMsg(msg, !isCont);
+    scrollBottom();
+  });
+  socket.on('typing', d => {
+    if (d.userId === me?.id) return;
+    if (d.isTyping) typingMap[d.userId] = d.username;
+    else delete typingMap[d.userId];
+    renderTyping();
   });
 }
 
+/* ── CHANNELS ── */
 async function loadChannels() {
-  const res = await fetch('/api/channels');
-  channels = await res.json();
-  const list = document.getElementById('channelList');
-  list.innerHTML = channels.map((ch) =>
-    `<li class="channel-item" data-id="${ch.id}" onclick="switchChannel('${ch.id}')">${ch.name}</li>`
+  const r = await fetch('/api/channels');
+  channels = await r.json();
+  document.getElementById('channelList').innerHTML = channels.map(c =>
+    `<div class="ch-item" data-id="${c.id}" onclick="switchCh('${c.id}')">${c.name}</div>`
   ).join('');
-
-  if (channels.length > 0) switchChannel(channels[0].id);
+  if (channels.length) switchCh(channels.find(c=>c.name==='general')?.id || channels[0].id);
 }
 
-async function loadUsers() {
-  const res = await fetch('/api/users');
-  const users = await res.json();
-  const el = document.getElementById('userList');
-  el.innerHTML = '<div class="sidebar-section-title" style="padding:0 20px;margin-bottom:4px;">People</div>' +
-    users.map((u) =>
-      `<div class="user-item"><span class="user-dot"></span>${u.displayName}${u.isBot ? ' <span style="color:#0ea5e9;font-size:0.7rem;">BOT</span>' : ''}</div>`
-    ).join('');
-}
-
-async function switchChannel(channelId) {
-  if (currentChannel) {
-    socket.emit('leave_channel', currentChannel.id);
-  }
-
-  currentChannel = channels.find((c) => c.id === channelId);
-  socket.emit('join_channel', channelId);
-
-  // Update sidebar active state
-  document.querySelectorAll('.channel-item').forEach((el) => {
-    el.classList.toggle('active', el.dataset.id === channelId);
-  });
-
-  document.getElementById('channelName').textContent = currentChannel.name;
-  document.getElementById('channelDesc').textContent = currentChannel.description || '';
-  document.getElementById('messageInput').placeholder = `Message #${currentChannel.name}`;
-
-  typingUsers = {};
-  updateTypingIndicator();
-
-  // Load messages
-  const res = await fetch(`/api/channels/${channelId}/messages?limit=50`);
-  const messages = await res.json();
-  renderMessages(messages);
-  scrollToBottom();
-}
-
-function renderMessages(messages) {
+async function switchCh(id) {
+  if (curCh) socket.emit('leave_channel', curCh.id);
+  curCh = channels.find(c => c.id === id);
+  socket.emit('join_channel', id);
+  // Update sidebar
+  document.querySelectorAll('.ch-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.id === id));
+  document.getElementById('chName').textContent = curCh.name;
+  document.getElementById('chDesc').textContent = curCh.description || '';
+  document.getElementById('msgInput').placeholder = `Message #${curCh.name}`;
+  // Load msgs
+  lastMsgUserId = null;
+  typingMap = {}; renderTyping();
+  const r = await fetch(`/api/channels/${id}/messages?limit=60`);
+  const msgs = await r.json();
   const container = document.getElementById('messages');
   container.innerHTML = '';
-  let lastUserId = null;
-
-  messages.forEach((msg) => {
-    const isNewGroup = msg.userId !== lastUserId;
-    appendMessage(msg, isNewGroup);
-    lastUserId = msg.userId;
+  lastMsgUserId = null;
+  msgs.forEach((m, i) => {
+    const newGroup = m.userId !== lastMsgUserId;
+    lastMsgUserId = m.userId;
+    appendMsg(m, newGroup, true);
   });
+  scrollBottom();
+  closeSidebar();
 }
 
-function appendMessage(msg, forceNewGroup) {
+/* ── USERS ── */
+async function loadUsers() {
+  const r = await fetch('/api/users');
+  const users = await r.json();
+  document.getElementById('userList').innerHTML = users.map(u =>
+    `<div class="u-item">
+      <span class="u-dot ${u.isBot?'bot':''}"></span>
+      <span>${u.displayName}</span>
+      ${u.isBot ? '<span class="bot-tag">BOT</span>' : ''}
+    </div>`
+  ).join('');
+}
+
+/* ── MESSAGES ── */
+function appendMsg(msg, isNewGroup, noScroll) {
   const container = document.getElementById('messages');
-  const lastMsg = container.lastElementChild;
-  const isNewGroup = forceNewGroup !== undefined ? forceNewGroup :
-    !lastMsg || lastMsg.dataset.userId !== msg.userId;
+  const isAI = msg.isAI || msg.user?.isBot;
+  const color = AV_COLORS[msg.user?.username] || '#7b61ff';
+  const initials = (msg.user?.displayName || '?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const timeStr = relTime(new Date(msg.createdAt));
+  const text = esc(msg.content);
 
-  const initials = getInitials(msg.user.displayName);
-  const color = AVATAR_COLORS[msg.user.username] || '#7b61ff';
-  const isAI = msg.isAI || msg.user.isBot;
-  const timeStr = relativeTime(new Date(msg.createdAt));
-
-  const div = document.createElement('div');
-  div.dataset.userId = msg.userId;
+  const el = document.createElement('div');
 
   if (isNewGroup) {
-    div.className = `msg-group${isAI ? ' msg-ai' : ''}`;
-    div.innerHTML = `
-      <div class="msg-header">
-        <div class="msg-avatar" style="background:${color}">${initials}</div>
-        <span class="msg-author">${escapeHtml(msg.user.displayName)}</span>
-        ${isAI ? '<span class="msg-bot-badge">BOT</span>' : ''}
-        <span class="msg-time">${timeStr}</span>
-      </div>
-      <div class="msg-content">${escapeHtml(msg.content)}</div>
-    `;
+    el.className = 'msg-group' + (isAI ? ' msg-ai-group' : '');
+    el.dataset.uid = msg.userId;
+    el.innerHTML = `
+      <div class="msg-top">
+        <div class="msg-av" style="background:${color}">${initials}</div>
+        <div>
+          <div class="msg-meta">
+            <span class="msg-name">${esc(msg.user?.displayName||'?')}</span>
+            ${isAI ? '<span class="bot-badge">BOT</span>' : ''}
+            <span class="msg-time">${timeStr}</span>
+          </div>
+          <div class="msg-body">${text}</div>
+        </div>
+      </div>`;
   } else {
-    div.className = isAI ? 'msg-ai' : '';
-    div.innerHTML = `<div class="msg-content continuation">${escapeHtml(msg.content)}</div>`;
+    el.className = 'msg-cont' + (isAI ? ' msg-ai-cont' : '');
+    el.dataset.uid = msg.userId;
+    el.innerHTML = text;
   }
 
-  container.appendChild(div);
+  container.appendChild(el);
+  if (!noScroll) scrollBottom();
 }
 
-function getInitials(name) {
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
-}
-
-function relativeTime(date) {
-  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (diff < 60) return 'just now';
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return date.toLocaleDateString();
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-    return;
-  }
-
-  // Typing indicator
-  if (currentChannel && currentUser) {
-    socket.emit('typing_start', { channelId: currentChannel.id, userId: currentUser.id, username: currentUser.username });
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      socket.emit('typing_stop', { channelId: currentChannel.id, userId: currentUser.id, username: currentUser.username });
-    }, 2000);
-  }
-
-  // Auto-resize textarea
-  const textarea = e.target;
-  textarea.style.height = 'auto';
-  textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
-}
-
-async function sendMessage() {
-  const input = document.getElementById('messageInput');
+/* ── SEND ── */
+async function sendMsg() {
+  const input = document.getElementById('msgInput');
   const content = input.value.trim();
-  if (!content || !currentChannel) return;
+  if (!content || !curCh || !me) return;
 
   input.value = '';
   input.style.height = 'auto';
+  document.getElementById('btnSend').disabled = true;
 
-  socket.emit('typing_stop', { channelId: currentChannel.id, userId: currentUser.id, username: currentUser.username });
-
-  await fetch(`/api/channels/${currentChannel.id}/messages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content, userId: currentUser.id }),
-  });
-}
-
-function updateTypingIndicator() {
-  const el = document.getElementById('typingIndicator');
-  const names = Object.values(typingUsers);
-  if (names.length === 0) {
-    el.textContent = '';
-  } else if (names.length === 1) {
-    el.textContent = `${names[0]} is typing...`;
-  } else {
-    el.textContent = `${names.join(', ')} are typing...`;
-  }
-}
-
-async function fetchSummary() {
-  if (!currentChannel) return;
-  const modal = document.getElementById('summaryModal');
-  const content = document.getElementById('summaryContent');
-  modal.classList.remove('hidden');
-  content.textContent = 'Generating summary...';
-  content.className = 'loading';
+  socket.emit('typing_stop', { channelId: curCh.id, userId: me.id, username: me.username });
 
   try {
-    const res = await fetch(`/api/channels/${currentChannel.id}/summary`, { method: 'POST' });
-    const data = await res.json();
-    if (data.error) {
-      content.textContent = 'Summary unavailable: ' + data.error;
-    } else {
-      content.textContent = data.summary;
-      content.className = '';
-    }
-  } catch (err) {
-    content.textContent = 'Failed to generate summary.';
+    await fetch(`/api/channels/${curCh.id}/messages`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ content, userId: me.id })
+    });
+  } catch(e) {
+    console.error('Send failed:', e);
   }
+  document.getElementById('btnSend').disabled = false;
+  input.focus();
 }
 
+/* ── TYPING ── */
+function renderTyping() {
+  const names = Object.values(typingMap);
+  document.getElementById('typingBar').textContent =
+    names.length === 0 ? '' :
+    names.length === 1 ? `${names[0]} is typing…` :
+    `${names.join(', ')} are typing…`;
+}
+
+/* ── SUMMARY ── */
+async function showSummary() {
+  if (!curCh) return;
+  const modal = document.getElementById('summaryModal');
+  const txt = document.getElementById('summaryText');
+  modal.classList.remove('hidden');
+  txt.textContent = 'Generating summary…';
+
+  try {
+    const r = await fetch(`/api/channels/${curCh.id}/summary`, { method:'POST' });
+    const d = await r.json();
+    txt.textContent = d.summary || d.error || 'No summary available.';
+  } catch(e) {
+    txt.textContent = 'Error: ' + e.message;
+  }
+}
 function closeSummary(e) {
-  if (e && e.target !== e.currentTarget) return;
+  if (e && e.target !== document.getElementById('summaryModal')) return;
   document.getElementById('summaryModal').classList.add('hidden');
 }
 
-function scrollToBottom() {
+/* ── SIDEBAR (mobile) ── */
+function openSidebar() {
+  document.getElementById('sidebar').classList.add('open');
+  document.getElementById('sidebarOverlay').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+
+/* ── INPUT HANDLING ── */
+const input = document.getElementById('msgInput');
+input.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); return; }
+  if (!curCh || !me || !socket) return;
+  socket.emit('typing_start', { channelId: curCh.id, userId: me.id, username: me.username });
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() =>
+    socket?.emit('typing_stop', { channelId: curCh.id, userId: me.id, username: me.username }), 2000);
+});
+input.addEventListener('input', () => {
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+});
+
+/* ── HELPERS ── */
+function scrollBottom() {
   const el = document.getElementById('messages');
   el.scrollTop = el.scrollHeight;
+}
+function relTime(d) {
+  const s = Math.floor((Date.now() - d) / 1000);
+  if (s < 60) return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return d.toLocaleDateString();
+}
+function esc(t = '') {
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
 </body>
