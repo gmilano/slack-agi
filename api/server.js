@@ -240,10 +240,10 @@ app.post('/api/channels/:id/messages', async (req, res) => {
       return;
     }
 
-    // Direct team trigger check in route handler (most reliable)
+    // Direct team trigger — must explicitly mention team/equipo/session
     const isTeamTrigger =
-      /\b(hagamos|lancemos|arrancemos|let.?s (go|create|form|start|build)|create.{0,5}team|form.{0,5}team|who.?s in|vamos|dale|listo|armemos|lets go)\b/i.test(content)
-      || /\b(hagamos|lancemos|start|arrancemos|necesito|quiero|podemos)\b.{0,50}\b(team|equipo|session|sesión|analizar|misión|mission)\b/i.test(content);
+      /\b(team session|hagamos un team|lanzá? el equipo|armemos un team|start a team|let'?s do a team|convocá? al equipo|sesión de equipo)\b/i.test(content)
+      || /\b(hagamos|lancemos|arrancemos|quiero|necesito|podemos)\b.{1,40}\b(team session|equipo|sesión de agentes)\b/i.test(content);
 
     if (isTeamTrigger) {
       console.log('[ROUTE] Team trigger detected:', content);
@@ -1617,11 +1617,10 @@ async function passiveAgentResponse(channelId, content, senderId) {
     const sender = await prisma.user.findUnique({ where: { id: senderId } });
     if (sender?.isBot) return;
 
-    // Detect natural team session / mission creation request — BEFORE length check
+    // Detect explicit team session request — must be unambiguous
     const teamTrigger =
-      /\b(hagamos|lancemos|arrancemos|start|let'?s (go|start|create|form|build)|create the team|form(ing)? a team|who'?s in|vamos|dale|go|listo|ok team|armemos|let's go|lets go)\b/i.test(content)
-      || /\b(hagamos|lancemos|start|arrancemos|necesito|quiero|podemos)\b.{0,50}\b(team|equipo|session|sesión|discutir|debatir|analizar|misión|mission)\b/i.test(content)
-      || /\b(team session|team sobre|equipo sobre|sesión sobre|create.{0,10}team|form.{0,10}team)\b/i.test(content);
+      /\b(team session|hagamos un team|lanzá? el equipo|armemos un team|start a team|let'?s do a team|convocá? al equipo|sesión de equipo)\b/i.test(content)
+      || /\b(hagamos|lancemos|arrancemos|quiero|necesito|podemos)\b.{1,40}\b(team session|equipo|sesión de agentes)\b/i.test(content);
 
     if (teamTrigger) {
       console.log('[TEAM TRIGGER] detected:', content.slice(0, 40));
