@@ -1572,22 +1572,48 @@ async function passiveAgentResponse(channelId, content, senderId) {
     const recentBotCount = recent.filter(m => m.user.isBot).length;
     if (recentBotCount >= 2) return;
 
-    // Detect natural team session request
-    const teamTrigger = /\b(hagamos|lancemos|start|arrancemos|necesito|quiero|podemos)\b.{0,40}\b(team|equipo|session|sesión|discutir|debatir|analizar)\b/i.test(content)
-      || /\b(team session|team sobre|equipo sobre|sesión sobre)\b/i.test(content);
+    // Detect natural team session / mission creation request
+    const teamTrigger =
+      /\b(hagamos|lancemos|arrancemos|start|let'?s (go|start|create|form|build)|create the team|form(ing)? a team|who'?s in|vamos|dale|go|listo|ok team|armemos)\b/i.test(content)
+      || /\b(hagamos|lancemos|start|arrancemos|necesito|quiero|podemos)\b.{0,50}\b(team|equipo|session|sesión|discutir|debatir|analizar|misión|mission)\b/i.test(content)
+      || /\b(team session|team sobre|equipo sobre|sesión sobre|create.{0,10}team|form.{0,10}team)\b/i.test(content);
 
     if (teamTrigger) {
-      await sleep(1500);
-      runTeamSession(channelId, content);
-      // Announce it
+      await sleep(1200);
       const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+
+      // Pull context from recent messages to build the topic
+      const recentCtx = await prisma.message.findMany({
+        where: { channelId }, include: { user: true },
+        orderBy: { createdAt: 'desc' }, take: 8,
+      });
+      const ctxText = recentCtx.reverse().map(m => `${m.user.displayName}: ${m.content}`).join('\n');
+
+      // Ask GPT-4o to extract the topic from context
+      let topic = content;
+      if (openai) {
+        try {
+          const t = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [
+              { role: 'system', content: 'Extract the main topic or decision the team wants to work on. Return only a short phrase (5-10 words max). No quotes, no punctuation at end.' },
+              { role: 'user', content: `Context:\n${ctxText}\n\nLatest: "${content}"\n\nWhat topic should the team session be about?` }
+            ],
+            max_tokens: 30,
+          });
+          topic = t.choices[0].message.content.trim();
+        } catch(e) { /* fallback to content */ }
+      }
+
       if (agiUser) {
         const announce = await prisma.message.create({
-          data: { content: `🤖 Detecté que querés una team session sobre esto. Convocando al equipo...`, userId: agiUser.id, channelId, isAI: true },
+          data: { content: `🤖 **Convocando al equipo** — topic: "${topic}"\nAria, Cody, Sage, Rex... están en camino.`, userId: agiUser.id, channelId, isAI: true },
           include: { user: true },
         });
         io.to(channelId).emit('new_message', announce);
       }
+      await sleep(800);
+      runTeamSession(channelId, topic);
       return;
     }
 
