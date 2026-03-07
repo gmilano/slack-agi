@@ -165,6 +165,8 @@ app.get('/api/missions', async (req, res) => {
       include: {
         members: { include: { user: true } },
         tasks: { include: { assignee: true } },
+        topics: { include: { artifacts: true, questions: true } },
+        artifacts: { include: { createdBy: true } },
         createdBy: true,
       },
       orderBy: { createdAt: 'desc' },
@@ -234,11 +236,92 @@ app.post('/api/missions', async (req, res) => {
       });
     }
 
+    // Auto-generate Project Brief artifact
+    let briefArtifact = null;
+    if (openai) {
+      try {
+        const memberSummaries = members
+          .map((m) => {
+            const u = allUsers.find((u) => u.id === m.userId);
+            return u ? `${u.displayName} (${m.role})` : null;
+          })
+          .filter(Boolean)
+          .join(', ');
+
+        const briefCompletion = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content:
+                'Generate a project brief for a software/product mission in markdown. Include: ## Objective, ## Success Metrics, ## Key Risks, ## Initial Topics, ## Suggested Team Roles. Under "Initial Topics" list exactly 3 topics as bullet points with format: - **Topic Title**: Description.',
+            },
+            {
+              role: 'user',
+              content: `Mission: "${title}"\nObjective: ${objective}\nTeam: ${memberSummaries}`,
+            },
+          ],
+          temperature: 0.7,
+        });
+
+        const briefContent = briefCompletion.choices[0].message.content;
+
+        // Find the human team lead
+        const leadMember = members.find((m) => m.role === 'lead');
+        const leadUser = leadMember ? allUsers.find((u) => u.id === leadMember.userId && !u.isBot) : null;
+        const reviewerUser = leadUser || allUsers.find((u) => u.id === createdById);
+
+        const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+        const creatorId = agiUser?.id || createdById;
+
+        briefArtifact = await prisma.artifact.create({
+          data: {
+            missionId: mission.id,
+            type: 'project_brief',
+            title: `Project Brief: ${title}`,
+            content: briefContent,
+            status: 'draft',
+            createdById: creatorId,
+            reviewerId: reviewerUser?.id,
+          },
+        });
+
+        // Create inbox item for reviewer
+        if (reviewerUser) {
+          const inboxItem = await prisma.inboxItem.create({
+            data: {
+              userId: reviewerUser.id,
+              type: 'artifact_review',
+              title: `Review: Project Brief — ${title}`,
+              priority: 'high',
+              artifactId: briefArtifact.id,
+              missionId: mission.id,
+              fromAgent: 'agi',
+            },
+          });
+          io.emit('inbox_update', { userId: reviewerUser.id, item: inboxItem });
+        }
+
+        // Auto-create 3 MissionTopics from the brief
+        const topicRegex = /- \*\*(.+?)\*\*:\s*(.+)/g;
+        let match;
+        while ((match = topicRegex.exec(briefContent)) !== null) {
+          await prisma.missionTopic.create({
+            data: { missionId: mission.id, title: match[1], description: match[2].trim() },
+          });
+        }
+      } catch (e) {
+        console.error('Project brief generation failed:', e.message);
+      }
+    }
+
     const fullMission = await prisma.mission.findUnique({
       where: { id: mission.id },
       include: {
         members: { include: { user: { include: { profile: true } } } },
         tasks: true,
+        topics: true,
+        artifacts: true,
         createdBy: true,
       },
     });
@@ -344,6 +427,202 @@ app.post('/api/missions/:id/tasks', async (req, res) => {
   }
 });
 
+// ── TOPICS ────────────────────────────────────────────────
+
+// Create a topic for a mission
+app.post('/api/missions/:id/topics', async (req, res) => {
+  try {
+    const { title, description } = req.body;
+    if (!title) return res.status(400).json({ error: 'title required' });
+    const topic = await prisma.missionTopic.create({
+      data: { missionId: req.params.id, title, description },
+    });
+    res.json(topic);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get topics for a mission
+app.get('/api/missions/:id/topics', async (req, res) => {
+  try {
+    const topics = await prisma.missionTopic.findMany({
+      where: { missionId: req.params.id },
+      include: { artifacts: true, questions: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    res.json(topics);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ARTIFACTS ─────────────────────────────────────────────
+
+// Create an artifact
+app.post('/api/artifacts', async (req, res) => {
+  try {
+    const { missionId, topicId, channelId, type, title, content, createdById, reviewerId } = req.body;
+    if (!type || !title || !content || !createdById) {
+      return res.status(400).json({ error: 'type, title, content, createdById required' });
+    }
+    const artifact = await prisma.artifact.create({
+      data: { missionId, topicId, channelId, type, title, content, createdById, reviewerId },
+      include: { createdBy: true, reviewer: true },
+    });
+
+    // Create inbox item for reviewer if provided
+    if (reviewerId) {
+      const inboxItem = await prisma.inboxItem.create({
+        data: {
+          userId: reviewerId,
+          type: 'artifact_review',
+          title: `Review needed: ${title}`,
+          priority: 'high',
+          artifactId: artifact.id,
+          missionId,
+          fromAgent: artifact.createdBy?.username,
+        },
+      });
+      io.emit('inbox_update', { userId: reviewerId, item: inboxItem });
+    }
+
+    res.json(artifact);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get an artifact
+app.get('/api/artifacts/:id', async (req, res) => {
+  try {
+    const artifact = await prisma.artifact.findUnique({
+      where: { id: req.params.id },
+      include: { createdBy: true, reviewer: true, topic: true, mission: true },
+    });
+    if (!artifact) return res.status(404).json({ error: 'Artifact not found' });
+    res.json(artifact);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update an artifact
+app.patch('/api/artifacts/:id', async (req, res) => {
+  try {
+    const { status, content } = req.body;
+    const data = {};
+    if (status) data.status = status;
+    if (content) data.content = content;
+    const artifact = await prisma.artifact.update({
+      where: { id: req.params.id },
+      data,
+      include: { createdBy: true, reviewer: true },
+    });
+    res.json(artifact);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── INBOX ─────────────────────────────────────────────────
+
+// Get user inbox
+app.get('/api/users/:id/inbox', async (req, res) => {
+  try {
+    const items = await prisma.inboxItem.findMany({
+      where: { userId: req.params.id, status: 'pending' },
+      include: { artifact: true, question: true, mission: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    res.json(items);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Act on inbox item
+app.post('/api/inbox/:id/action', async (req, res) => {
+  try {
+    const { action, answer } = req.body;
+    const item = await prisma.inboxItem.findUnique({
+      where: { id: req.params.id },
+      include: { artifact: true, question: true },
+    });
+    if (!item) return res.status(404).json({ error: 'Item not found' });
+
+    if (action === 'approve' && item.artifactId) {
+      await prisma.artifact.update({ where: { id: item.artifactId }, data: { status: 'approved' } });
+      await prisma.inboxItem.update({ where: { id: item.id }, data: { status: 'done', doneAt: new Date() } });
+    } else if (action === 'reject' && item.artifactId) {
+      await prisma.artifact.update({ where: { id: item.artifactId }, data: { status: 'rejected' } });
+      await prisma.inboxItem.update({ where: { id: item.id }, data: { status: 'done', doneAt: new Date() } });
+    } else if (action === 'answer' && item.questionId) {
+      const question = await prisma.blockingQuestion.update({
+        where: { id: item.questionId },
+        data: { answer, status: 'answered', answeredAt: new Date() },
+      });
+      await prisma.inboxItem.update({ where: { id: item.id }, data: { status: 'done', doneAt: new Date() } });
+      if (question.channelId) {
+        io.to(question.channelId).emit('question_answered', question);
+      }
+    } else if (action === 'dismiss') {
+      await prisma.inboxItem.update({ where: { id: item.id }, data: { status: 'dismissed', doneAt: new Date() } });
+    }
+
+    const updated = await prisma.inboxItem.findUnique({
+      where: { id: item.id },
+      include: { artifact: true, question: true },
+    });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── BLOCKING QUESTIONS ────────────────────────────────────
+
+// Create a blocking question
+app.post('/api/channels/:id/blocking-question', async (req, res) => {
+  try {
+    const { agentUsername, question, context, assigneeId, missionId, topicId } = req.body;
+    if (!agentUsername || !question || !assigneeId) {
+      return res.status(400).json({ error: 'agentUsername, question, assigneeId required' });
+    }
+
+    const bq = await prisma.blockingQuestion.create({
+      data: {
+        channelId: req.params.id,
+        agentUsername,
+        question,
+        context,
+        assigneeId,
+        missionId,
+        topicId,
+      },
+    });
+
+    // Create inbox item for assignee
+    const inboxItem = await prisma.inboxItem.create({
+      data: {
+        userId: assigneeId,
+        type: 'blocking_question',
+        title: `${agentUsername} asks: ${question.slice(0, 80)}`,
+        description: context,
+        questionId: bq.id,
+        missionId,
+        fromAgent: agentUsername,
+      },
+    });
+
+    io.to(req.params.id).emit('blocking_question', bq);
+    io.emit('inbox_update', { userId: assigneeId, item: inboxItem });
+    res.json(bq);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Team session — multi-agent orchestrated discussion
 app.post('/api/channels/:id/team-session', async (req, res) => {
   const { topic } = req.body;
@@ -417,6 +696,80 @@ async function runTeamSession(channelId, topic) {
 
     io.to(channelId).emit('new_message', msg);
     sessionMsgs.push({ name: def.displayName, content });
+  }
+
+  // Generate Decision Document artifact after team session
+  try {
+    const fullDiscussion = sessionMsgs.map((m) => `${m.name}: ${m.content}`).join('\n\n');
+    const docCompletion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: 'Based on this team discussion, generate a Decision Document in markdown format. Include: ## Decision, ## Rationale, ## Key Concerns (from Rex), ## Next Steps, ## Team Assignments.',
+        },
+        {
+          role: 'user',
+          content: `Topic: "${topic}"\n\nDiscussion:\n${fullDiscussion}`,
+        },
+      ],
+      temperature: 0.6,
+    });
+
+    const docContent = docCompletion.choices[0].message.content;
+    const agiUser = await prisma.user.findUnique({ where: { username: 'agi' } });
+
+    // Find first non-bot user in channel to be reviewer
+    const channelMembers = await prisma.channelMember.findMany({
+      where: { channelId },
+      include: { user: true },
+    });
+    const reviewer = channelMembers.find((cm) => !cm.user.isBot)?.user;
+
+    if (agiUser) {
+      const artifact = await prisma.artifact.create({
+        data: {
+          channelId,
+          type: 'decision_doc',
+          title: `Decision: ${topic}`,
+          content: docContent,
+          status: 'draft',
+          createdById: agiUser.id,
+          reviewerId: reviewer?.id,
+        },
+        include: { createdBy: true, reviewer: true },
+      });
+
+      io.to(channelId).emit('artifact_created', artifact);
+
+      if (reviewer) {
+        const inboxItem = await prisma.inboxItem.create({
+          data: {
+            userId: reviewer.id,
+            type: 'artifact_review',
+            title: `Review needed: Decision Doc — ${topic}`,
+            priority: 'high',
+            artifactId: artifact.id,
+            fromAgent: 'agi',
+          },
+        });
+        io.emit('inbox_update', { userId: reviewer.id, item: inboxItem });
+      }
+
+      const reviewerName = reviewer?.displayName || 'the team';
+      const notifyMsg = await prisma.message.create({
+        data: {
+          content: `📄 I've drafted a **Decision Document** based on our discussion. It's been sent to ${reviewerName} for review. Check your inbox.`,
+          userId: agiUser.id,
+          channelId,
+          isAI: true,
+        },
+        include: { user: true },
+      });
+      io.to(channelId).emit('new_message', notifyMsg);
+    }
+  } catch (e) {
+    console.error('Decision doc generation failed:', e.message);
   }
 }
 

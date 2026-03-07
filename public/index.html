@@ -280,6 +280,155 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 }
 #createMissionModal textarea { resize: vertical; min-height: 70px; }
 
+/* ─── INBOX PANEL ──────────────────────────────────────── */
+.btn-inbox {
+  background: #2c2d30; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  font-weight: 700; flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+  position: relative;
+}
+.btn-inbox:hover { background: #3e3f42; border-color: #7b61ff; color: #fff; }
+.inbox-badge {
+  position: absolute; top: -6px; right: -6px; background: #e8596e;
+  color: #fff; font-size: 0.6rem; font-weight: 800; min-width: 16px;
+  height: 16px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; padding: 0 4px;
+}
+.inbox-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw;
+  background: #2c2d30; border-left: 1px solid #3e3f42; z-index: 55;
+  transform: translateX(100%); transition: transform 0.25s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.inbox-panel.open { transform: translateX(0); }
+.inbox-panel .mp-header { padding: 14px 16px; border-bottom: 1px solid #3e3f42; display: flex; align-items: center; justify-content: space-between; }
+.inbox-panel .mp-header h3 { color: #fff; font-size: 1rem; font-weight: 700; margin: 0; }
+.inbox-panel .mp-body { flex: 1; overflow-y: auto; padding: 8px; }
+.inbox-item {
+  background: #222529; border-radius: 10px; padding: 12px; margin-bottom: 8px;
+  border-left: 3px solid #e8a34a; transition: background 0.15s;
+}
+.inbox-item:hover { background: #2a2d32; }
+.inbox-item.priority-high { border-left-color: #e8596e; }
+.inbox-item.priority-low { border-left-color: #616061; }
+.inbox-item-type { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 4px; }
+.inbox-item-type.artifact_review { color: #7b61ff; }
+.inbox-item-type.blocking_question { color: #e8a34a; }
+.inbox-item-type.decision { color: #2bac76; }
+.inbox-item-title { color: #fff; font-size: 0.88rem; font-weight: 600; margin-bottom: 4px; }
+.inbox-item-meta { color: #888; font-size: 0.72rem; margin-bottom: 8px; }
+.inbox-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.inbox-actions button {
+  padding: 5px 12px; border-radius: 6px; border: none; font-size: 0.75rem;
+  font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+.inbox-btn-approve { background: #2bac76; color: #fff; }
+.inbox-btn-approve:hover { background: #239963; }
+.inbox-btn-reject { background: #e8596e; color: #fff; }
+.inbox-btn-reject:hover { background: #d14455; }
+.inbox-btn-view { background: #7b61ff; color: #fff; }
+.inbox-btn-view:hover { background: #6a4ff0; }
+.inbox-btn-answer { background: #4a9ce8; color: #fff; }
+.inbox-btn-answer:hover { background: #3a8cd8; }
+.inbox-btn-dismiss { background: #3e3f42; color: #aaa; }
+.inbox-btn-dismiss:hover { background: #4a4b4e; }
+.inbox-answer-input {
+  width: 100%; background: #1a1d21; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 8px 10px; border-radius: 6px; font-size: 0.82rem; outline: none;
+  font-family: inherit; margin-top: 6px; resize: vertical; min-height: 50px;
+}
+.inbox-empty { text-align: center; color: #616061; padding: 40px 16px; font-size: 0.9rem; }
+
+/* ─── ARTIFACT VIEWER ──────────────────────────────────── */
+.artifact-viewer {
+  position: fixed; inset: 0; background: rgba(0,0,0,.8);
+  z-index: 200; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.artifact-box {
+  background: #2c2d30; border-radius: 14px; width: 100%; max-width: 700px;
+  max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
+}
+.artifact-header {
+  padding: 16px 20px; border-bottom: 1px solid #3e3f42;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.artifact-header-info { flex: 1; }
+.artifact-title { color: #fff; font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+.artifact-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.artifact-badge {
+  display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 4px;
+  font-weight: 700; text-transform: uppercase;
+}
+.artifact-badge.decision_doc { background: #7b61ff33; color: #7b61ff; }
+.artifact-badge.project_brief { background: #4a9ce833; color: #4a9ce8; }
+.artifact-badge.research_report { background: #2bac7633; color: #2bac76; }
+.artifact-badge.architecture { background: #e8a34a33; color: #e8a34a; }
+.artifact-badge.analysis { background: #e8596e33; color: #e8596e; }
+.artifact-badge.action_plan { background: #0ea5e933; color: #0ea5e9; }
+.status-badge {
+  display: inline-block; font-size: 0.65rem; padding: 2px 8px; border-radius: 4px;
+  font-weight: 700; text-transform: uppercase;
+}
+.status-badge.draft { background: #3e3f42; color: #aaa; }
+.status-badge.pending_review { background: #e8a34a33; color: #e8a34a; }
+.status-badge.approved { background: #2bac7633; color: #2bac76; }
+.status-badge.rejected { background: #e8596e33; color: #e8596e; }
+.artifact-author { color: #888; font-size: 0.75rem; }
+.artifact-content {
+  flex: 1; overflow-y: auto; padding: 20px; color: #d1d2d3;
+  font-size: 0.9rem; line-height: 1.7;
+}
+.artifact-content h1, .artifact-content h2, .artifact-content h3 { color: #fff; margin: 16px 0 8px; }
+.artifact-content h2 { font-size: 1.1rem; border-bottom: 1px solid #3e3f42; padding-bottom: 4px; }
+.artifact-content h3 { font-size: 0.95rem; }
+.artifact-content ul, .artifact-content ol { padding-left: 20px; margin: 8px 0; }
+.artifact-content li { margin: 4px 0; }
+.artifact-content strong { color: #fff; }
+.artifact-footer {
+  padding: 12px 20px; border-top: 1px solid #3e3f42;
+  display: flex; gap: 8px; justify-content: flex-end;
+}
+.artifact-footer button {
+  padding: 8px 16px; border-radius: 8px; border: none; font-size: 0.82rem;
+  font-weight: 700; cursor: pointer; transition: all 0.15s;
+}
+
+/* ─── MISSION TOPICS ───────────────────────────────────── */
+.mission-topic {
+  padding: 5px 8px; margin: 2px 0; border-radius: 4px;
+  cursor: pointer; font-size: 0.82rem; color: #ababad;
+  display: flex; align-items: center; gap: 6px; transition: background 0.1s;
+}
+.mission-topic:hover { background: #3e3f42; color: #d1d2d3; }
+.topic-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.topic-dot.open { background: #2bac76; }
+.topic-dot.in_progress { background: #4a9ce8; }
+.topic-dot.blocked { background: #e8596e; }
+.topic-dot.resolved { background: #616061; }
+.topic-artifact-count { color: #616061; font-size: 0.7rem; margin-left: auto; }
+.mp-topics { margin-bottom: 16px; }
+
+/* ─── TOAST ────────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 20px; right: 20px; background: #2c2d30;
+  border: 1px solid #4a4b4e; border-radius: 10px; padding: 12px 16px;
+  color: #d1d2d3; font-size: 0.85rem; z-index: 300; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  transform: translateY(100px); opacity: 0; transition: all 0.3s ease;
+  max-width: 340px;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast-title { color: #fff; font-weight: 700; font-size: 0.88rem; margin-bottom: 2px; }
+
+/* ─── BLOCKING Q CARD (in chat) ────────────────────────── */
+.blocking-q-card {
+  background: #e8a34a15; border: 1px solid #e8a34a33; border-radius: 10px;
+  padding: 10px 12px; margin-top: 6px;
+}
+.blocking-q-card .bq-label { color: #e8a34a; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 4px; }
+.blocking-q-card .bq-question { color: #fff; font-size: 0.9rem; margin-bottom: 4px; }
+.blocking-q-card .bq-context { color: #888; font-size: 0.8rem; }
+
 /* ─── RESPONSIVE ────────────────────────────────────────── */
 @media (max-width: 640px) {
   #sidebar {
@@ -355,6 +504,7 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
         <div class="ch-title" id="chName">general</div>
         <div class="ch-desc" id="chDesc"></div>
       </div>
+      <button class="btn-inbox" onclick="toggleInbox()">📬 Inbox <span class="inbox-badge hidden" id="inboxBadge">0</span></button>
       <button class="btn-team" onclick="openTeamModal()">⚡ Team</button>
       <button class="btn-summary" onclick="showSummary()">✦ Summary</button>
     </div>
@@ -433,6 +583,42 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
   </div>
 </div>
 
+<!-- INBOX PANEL -->
+<div class="inbox-panel" id="inboxPanel">
+  <div class="mp-header">
+    <h3>📬 Inbox</h3>
+    <button class="mp-close" onclick="closeInbox()">&times;</button>
+  </div>
+  <div class="mp-body" id="inboxList">
+    <div class="inbox-empty">No pending items</div>
+  </div>
+</div>
+
+<!-- ARTIFACT VIEWER -->
+<div class="artifact-viewer hidden" id="artifactViewer" onclick="if(event.target===this)closeArtifactViewer()">
+  <div class="artifact-box">
+    <div class="artifact-header">
+      <div class="artifact-header-info">
+        <div class="artifact-title" id="avTitle"></div>
+        <div class="artifact-meta">
+          <span class="artifact-badge" id="avTypeBadge"></span>
+          <span class="status-badge" id="avStatusBadge"></span>
+          <span class="artifact-author" id="avAuthor"></span>
+        </div>
+      </div>
+      <button class="mp-close" onclick="closeArtifactViewer()">&times;</button>
+    </div>
+    <div class="artifact-content" id="avContent"></div>
+    <div class="artifact-footer" id="avFooter"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-title" id="toastTitle"></div>
+  <div id="toastBody"></div>
+</div>
+
 <!-- PROFILE CARD (dynamically positioned) -->
 <div class="profile-card hidden" id="profileCard"></div>
 
@@ -472,7 +658,9 @@ async function login(username, silent) {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     initSocket();
-    await Promise.all([loadChannels(), loadUsers(), loadMissions()]);
+    await Promise.all([loadChannels(), loadUsers(), loadMissions(), loadInbox()]);
+    if (inboxInterval) clearInterval(inboxInterval);
+    inboxInterval = setInterval(loadInbox, 30000);
   } catch(e) { alert('Login failed: ' + e.message); }
 }
 
@@ -492,6 +680,36 @@ function initSocket() {
   socket.on('mission_created', () => loadMissions());
   socket.on('task_updated', () => { if (curMission) openMissionPanel(curMission.id); });
   socket.on('task_created', () => { if (curMission) openMissionPanel(curMission.id); });
+  socket.on('artifact_created', art => {
+    showToast('📄 New Artifact', art.title);
+    loadInbox();
+  });
+  socket.on('inbox_update', data => {
+    if (data.userId === me?.id) loadInbox();
+  });
+  socket.on('question_answered', q => {
+    if (q.channelId === curCh?.id) {
+      // Show answered notification in chat
+      const note = document.createElement('div');
+      note.className = 'msg-cont';
+      note.innerHTML = `<span style="color:#2bac76">✅ <strong>${esc(q.agentUsername)}</strong> can now continue — question answered.</span>`;
+      document.getElementById('messages').appendChild(note);
+      scrollBottom();
+    }
+  });
+  socket.on('blocking_question', bq => {
+    if (bq.channelId === curCh?.id) {
+      const note = document.createElement('div');
+      note.className = 'msg-group';
+      note.innerHTML = `<div class="blocking-q-card">
+        <div class="bq-label">⚠ Blocking Question from ${esc(bq.agentUsername)}</div>
+        <div class="bq-question">${esc(bq.question)}</div>
+        ${bq.context ? `<div class="bq-context">${esc(bq.context)}</div>` : ''}
+      </div>`;
+      document.getElementById('messages').appendChild(note);
+      scrollBottom();
+    }
+  });
   socket.on('typing', d => {
     if (d.userId === me?.id) return;
     if (d.isTyping) typingMap[d.userId] = d.username;
@@ -615,6 +833,15 @@ async function sendMsg() {
       input.value = '';
       input.style.height = 'auto';
       runMatch(problem);
+      return;
+    }
+  }
+
+  // /topic command
+  if (content.toLowerCase().startsWith('/topic ')) {
+    if (handleTopicCommand(content)) {
+      input.value = '';
+      input.style.height = 'auto';
       return;
     }
   }
@@ -769,6 +996,26 @@ function openMissionPanel(id) {
     </div>`;
   }).join('');
 
+  // Topics
+  const topicsHtml = (m.topics || []).map(t => {
+    const artCount = t.artifacts?.length || 0;
+    const qCount = t.questions?.length || 0;
+    return `<div class="mission-topic" onclick="showTopicDetail('${m.id}','${t.id}')">
+      <span class="topic-dot ${t.status}"></span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</span>
+      <span class="topic-artifact-count">${artCount > 0 ? artCount + ' 📄' : ''} ${qCount > 0 ? qCount + ' ❓' : ''}</span>
+    </div>`;
+  }).join('');
+
+  // Artifacts
+  const artifactsHtml = (m.artifacts || []).map(a =>
+    `<div class="mission-topic" onclick="viewArtifact('${a.id}')">
+      <span class="artifact-badge ${a.type}" style="font-size:.6rem;padding:1px 5px">${a.type.replace(/_/g,' ')}</span>
+      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem">${esc(a.title)}</span>
+      <span class="status-badge ${a.status}" style="font-size:.55rem;padding:1px 4px">${a.status}</span>
+    </div>`
+  ).join('');
+
   document.getElementById('mpTasks').innerHTML = (m.tasks || []).map(t =>
     `<div class="task-item">
       <input type="checkbox" ${t.status === 'done' ? 'checked' : ''} onchange="toggleTask('${m.id}','${t.id}', this.checked)">
@@ -776,6 +1023,23 @@ function openMissionPanel(id) {
       <span class="task-status-tag ${t.status}">${t.status}</span>
     </div>`
   ).join('');
+
+  // Insert topics and artifacts sections before tasks
+  const mpBody = document.getElementById('missionPanel').querySelector('.mp-body');
+  // Remove any previously injected topics/artifacts sections
+  mpBody.querySelectorAll('.mp-dynamic').forEach(el => el.remove());
+
+  const topicsSection = document.createElement('div');
+  topicsSection.className = 'mp-dynamic';
+  topicsSection.innerHTML = `
+    ${(m.topics || []).length ? `<div class="mp-section-label">Topics</div><div class="mp-topics">${topicsHtml}</div>` : ''}
+    ${(m.artifacts || []).length ? `<div class="mp-section-label">Artifacts</div><div style="margin-bottom:16px">${artifactsHtml}</div>` : ''}
+  `;
+  const tasksLabel = mpBody.querySelector('.mp-section-label:last-of-type');
+  // Insert before the "Tasks" label
+  const allLabels = mpBody.querySelectorAll('.mp-section-label');
+  const taskLabel = allLabels[allLabels.length - 1];
+  if (taskLabel) mpBody.insertBefore(topicsSection, taskLabel);
 
   document.getElementById('missionPanel').classList.add('open');
 }
@@ -811,6 +1075,54 @@ async function addMissionTask() {
     await loadMissions();
     openMissionPanel(curMission.id);
   } catch (e) { console.error('Add task failed:', e); }
+}
+
+/* ── TOPIC DETAIL ── */
+async function showTopicDetail(missionId, topicId) {
+  const m = missions.find(x => x.id === missionId);
+  if (!m) return;
+  const topic = (m.topics || []).find(t => t.id === topicId);
+  if (!topic) return;
+  const artifacts = topic.artifacts || [];
+  const questions = topic.questions || [];
+
+  let html = `<h3 style="color:#fff;font-size:.95rem;margin-bottom:4px">${esc(topic.title)}</h3>`;
+  if (topic.description) html += `<p style="color:#888;font-size:.82rem;margin-bottom:12px">${esc(topic.description)}</p>`;
+  html += `<span class="status-badge ${topic.status}">${topic.status}</span>`;
+
+  if (artifacts.length) {
+    html += '<div style="margin-top:12px"><div class="mp-section-label">Artifacts</div>';
+    html += artifacts.map(a =>
+      `<div class="mission-topic" onclick="viewArtifact('${a.id}')">
+        <span class="artifact-badge ${a.type}" style="font-size:.6rem;padding:1px 5px">${a.type.replace(/_/g,' ')}</span>
+        <span style="flex:1">${esc(a.title)}</span>
+      </div>`
+    ).join('');
+    html += '</div>';
+  }
+
+  if (questions.length) {
+    html += '<div style="margin-top:12px"><div class="mp-section-label">Blocking Questions</div>';
+    html += questions.map(q =>
+      `<div class="blocking-q-card" style="margin-bottom:8px">
+        <div class="bq-label">${q.status === 'answered' ? '✅' : '⚠'} ${esc(q.agentUsername)}</div>
+        <div class="bq-question">${esc(q.question)}</div>
+        ${q.answer ? `<div style="color:#2bac76;font-size:.82rem;margin-top:4px">Answer: ${esc(q.answer)}</div>` : ''}
+      </div>`
+    ).join('');
+    html += '</div>';
+  }
+
+  // Show in mission panel body temporarily
+  const mpBody = document.getElementById('missionPanel').querySelector('.mp-body');
+  const existing = mpBody.querySelector('.topic-detail-overlay');
+  if (existing) existing.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'topic-detail-overlay';
+  overlay.style.cssText = 'position:absolute;inset:0;background:#2c2d30;padding:16px;overflow-y:auto;z-index:5';
+  overlay.innerHTML = `<button onclick="this.parentElement.remove()" style="background:none;border:none;color:#888;font-size:1.2rem;cursor:pointer;float:right">&times;</button>` + html;
+  mpBody.style.position = 'relative';
+  mpBody.appendChild(overlay);
 }
 
 /* ── CREATE MISSION ── */
@@ -894,6 +1206,243 @@ async function showProfile(userId, evt) {
 document.addEventListener('click', () => {
   document.getElementById('profileCard').classList.add('hidden');
 });
+
+/* ── INBOX ── */
+let inboxItems = [];
+let inboxInterval = null;
+
+async function loadInbox() {
+  if (!me) return;
+  try {
+    const r = await fetch(`/api/users/${me.id}/inbox`);
+    inboxItems = await r.json();
+    updateInboxBadge();
+    if (document.getElementById('inboxPanel').classList.contains('open')) renderInbox();
+  } catch (e) { console.error('Load inbox failed:', e); }
+}
+
+function updateInboxBadge() {
+  const badge = document.getElementById('inboxBadge');
+  const count = inboxItems.length;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function toggleInbox() {
+  const panel = document.getElementById('inboxPanel');
+  if (panel.classList.contains('open')) { closeInbox(); return; }
+  panel.classList.add('open');
+  renderInbox();
+}
+function closeInbox() {
+  document.getElementById('inboxPanel').classList.remove('open');
+}
+
+function renderInbox() {
+  const list = document.getElementById('inboxList');
+  if (inboxItems.length === 0) {
+    list.innerHTML = '<div class="inbox-empty">No pending items</div>';
+    return;
+  }
+  list.innerHTML = inboxItems.map(item => {
+    const typeIcon = item.type === 'artifact_review' ? '📄' : item.type === 'blocking_question' ? '❓' : '✅';
+    const priorityClass = `priority-${item.priority}`;
+    const typeLabel = item.type.replace(/_/g, ' ');
+    const timeStr = relTime(new Date(item.createdAt));
+    const fromStr = item.fromAgent ? `From: ${item.fromAgent}` : '';
+    const missionStr = item.mission ? ` · Mission: ${esc(item.mission.title)}` : '';
+
+    let actions = '';
+    if (item.type === 'artifact_review' && item.artifactId) {
+      actions = `
+        <button class="inbox-btn-approve" onclick="inboxAction('${item.id}','approve')">Approve</button>
+        <button class="inbox-btn-reject" onclick="inboxAction('${item.id}','reject')">Reject</button>
+        <button class="inbox-btn-view" onclick="viewArtifact('${item.artifactId}')">View</button>
+      `;
+    } else if (item.type === 'blocking_question' && item.questionId) {
+      const ctx = item.description ? `<div style="color:#888;font-size:.78rem;margin-top:4px">Context: ${esc(item.description)}</div>` : '';
+      actions = `
+        ${ctx}
+        <div class="inbox-answer-area" id="answer-area-${item.id}" style="display:none">
+          <textarea class="inbox-answer-input" id="answer-input-${item.id}" placeholder="Type your answer..."></textarea>
+          <button class="inbox-btn-approve" style="margin-top:6px" onclick="submitAnswer('${item.id}')">Submit</button>
+        </div>
+        <button class="inbox-btn-answer" onclick="document.getElementById('answer-area-${item.id}').style.display='block'">Answer</button>
+        <button class="inbox-btn-dismiss" onclick="inboxAction('${item.id}','dismiss')">Dismiss</button>
+      `;
+    } else {
+      actions = `<button class="inbox-btn-dismiss" onclick="inboxAction('${item.id}','dismiss')">Dismiss</button>`;
+    }
+
+    return `<div class="inbox-item ${priorityClass}">
+      <div class="inbox-item-type ${item.type}">${typeIcon} ${item.priority.toUpperCase()}</div>
+      <div class="inbox-item-title">${esc(item.title)}</div>
+      <div class="inbox-item-meta">${fromStr}${missionStr} · ${timeStr}</div>
+      <div class="inbox-actions">${actions}</div>
+    </div>`;
+  }).join('');
+}
+
+async function inboxAction(itemId, action) {
+  try {
+    await fetch(`/api/inbox/${itemId}/action`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    await loadInbox();
+  } catch (e) { console.error('Inbox action failed:', e); }
+}
+
+async function submitAnswer(itemId) {
+  const input = document.getElementById(`answer-input-${itemId}`);
+  const answer = input.value.trim();
+  if (!answer) return;
+  try {
+    await fetch(`/api/inbox/${itemId}/action`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'answer', answer }),
+    });
+    await loadInbox();
+  } catch (e) { console.error('Submit answer failed:', e); }
+}
+
+/* ── ARTIFACT VIEWER ── */
+async function viewArtifact(artifactId) {
+  try {
+    const r = await fetch(`/api/artifacts/${artifactId}`);
+    const art = await r.json();
+    document.getElementById('avTitle').textContent = art.title;
+
+    const typeBadge = document.getElementById('avTypeBadge');
+    typeBadge.textContent = art.type.replace(/_/g, ' ');
+    typeBadge.className = `artifact-badge ${art.type}`;
+
+    const statusBadge = document.getElementById('avStatusBadge');
+    statusBadge.textContent = art.status.replace(/_/g, ' ');
+    statusBadge.className = `status-badge ${art.status}`;
+
+    document.getElementById('avAuthor').textContent =
+      `By ${art.createdBy?.displayName || 'Unknown'} · ${relTime(new Date(art.createdAt))}`;
+
+    document.getElementById('avContent').innerHTML = renderMarkdown(art.content);
+
+    // Footer actions
+    const footer = document.getElementById('avFooter');
+    let footerHtml = '';
+    if (art.status === 'draft' || art.status === 'pending_review') {
+      footerHtml += `<button class="inbox-btn-approve" onclick="artifactAction('${art.id}','approved')">Approve</button>`;
+      footerHtml += `<button class="inbox-btn-reject" onclick="artifactAction('${art.id}','rejected')">Reject</button>`;
+    }
+    footerHtml += `<button class="inbox-btn-dismiss" onclick="downloadArtifact()">Download .md</button>`;
+    footerHtml += `<button class="inbox-btn-dismiss" onclick="closeArtifactViewer()">Close</button>`;
+    footer.innerHTML = footerHtml;
+
+    document.getElementById('artifactViewer').classList.remove('hidden');
+    // Store current artifact for download
+    window._currentArtifact = art;
+  } catch (e) { console.error('View artifact failed:', e); }
+}
+
+async function artifactAction(artifactId, status) {
+  try {
+    await fetch(`/api/artifacts/${artifactId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    closeArtifactViewer();
+    await loadInbox();
+    showToast('Artifact Updated', `Status changed to ${status}`);
+  } catch (e) { console.error('Artifact action failed:', e); }
+}
+
+function closeArtifactViewer() {
+  document.getElementById('artifactViewer').classList.add('hidden');
+}
+
+function downloadArtifact() {
+  const art = window._currentArtifact;
+  if (!art) return;
+  const blob = new Blob([art.content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = art.title.replace(/[^a-z0-9]/gi, '_') + '.md';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function renderMarkdown(text) {
+  let s = esc(text);
+  // Headers
+  s = s.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  s = s.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+  s = s.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+  // Bold
+  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // Inline code
+  s = s.replace(/`([^`]+)`/g, '<code style="background:#3e3f42;padding:1px 5px;border-radius:3px;font-size:.85em">$1</code>');
+  // Unordered lists
+  s = s.replace(/^- (.+)$/gm, '<li>$1</li>');
+  s = s.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
+  // Ordered lists
+  s = s.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+  // Newlines (for non-html lines)
+  s = s.replace(/\n/g, '<br>');
+  // Clean up double <br> after block elements
+  s = s.replace(/<\/(h[123]|ul|ol|li)><br>/g, '</$1>');
+  return s;
+}
+
+/* ── TOAST ── */
+function showToast(title, body) {
+  const toast = document.getElementById('toast');
+  document.getElementById('toastTitle').textContent = title;
+  document.getElementById('toastBody').textContent = body || '';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+/* ── TOPIC COMMAND ── */
+function handleTopicCommand(content) {
+  // /topic [missionId] Title | Description
+  const parts = content.slice(7).trim();
+  const sep = parts.indexOf('|');
+  if (sep > 0) {
+    const titlePart = parts.slice(0, sep).trim();
+    const description = parts.slice(sep + 1).trim();
+    // Check if first word is a mission ID
+    const words = titlePart.split(' ');
+    let missionId = curMission?.id;
+    let title = titlePart;
+    if (words.length > 1 && missions.find(m => m.id === words[0])) {
+      missionId = words[0];
+      title = words.slice(1).join(' ');
+    }
+    if (missionId && title) {
+      createTopic(missionId, title, description);
+      return true;
+    }
+  }
+  return false;
+}
+
+async function createTopic(missionId, title, description) {
+  try {
+    await fetch(`/api/missions/${missionId}/topics`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, description }),
+    });
+    await loadMissions();
+    if (curMission?.id === missionId) openMissionPanel(missionId);
+    showToast('Topic Created', title);
+  } catch (e) { console.error('Create topic failed:', e); }
+}
 
 /* ── HELPERS ── */
 function scrollBottom() {
