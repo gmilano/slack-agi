@@ -30,6 +30,7 @@ model User {
   createdSessions    SessionThread[]
   actionItems        ActionItem[]
   approvedPlans      ActionPlan[]
+  asyncTasks         AsyncTask[]
 }
 
 model UserProfile {
@@ -165,6 +166,7 @@ model Artifact {
   reviewer        User?         @relation("ArtifactReviewer", fields: [reviewerId], references: [id])
   inboxItems      InboxItem[]
   generatedByItem ActionItem[]
+  asyncTasks      AsyncTask[]
 }
 
 model BlockingQuestion {
@@ -261,4 +263,34 @@ model ActionItem {
   plan             ActionPlan @relation(fields: [planId], references: [id])
   assignee         User      @relation(fields: [assigneeId], references: [id])
   artifact         Artifact?  @relation(fields: [outputArtifactId], references: [id])
+}
+
+model AgentMemory {
+  id            String    @id @default(cuid())
+  agentUsername  String
+  type          String
+  content       String
+  channelId     String?
+  missionId     String?
+  importance    Int       @default(5)
+  createdAt     DateTime  @default(now())
+  expiresAt     DateTime?
+}
+
+model AsyncTask {
+  id            String    @id @default(cuid())
+  agentUsername  String
+  channelId     String
+  missionId     String?
+  type          String
+  prompt        String
+  status        String    @default("queued")
+  progress      Int       @default(0)
+  result        String?
+  artifactId    String?
+  requestedById String
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+  requestedBy   User      @relation(fields: [requestedById], references: [id])
+  artifact      Artifact? @relation(fields: [artifactId], references: [id])
 }

@@ -499,6 +499,87 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 }
 .show-archived-toggle:hover { color: #ababad; }
 
+/* ─── DASHBOARD PANEL ─────────────────────────────────────── */
+.btn-dashboard {
+  background: #2c2d30; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  font-weight: 700; flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+}
+.btn-dashboard:hover { background: #3e3f42; border-color: #7b61ff; color: #fff; }
+.dashboard-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 100vw;
+  background: #1a1d21; border-left: 1px solid #3e3f42; z-index: 65;
+  transform: translateX(100%); transition: transform 0.25s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dashboard-panel.open { transform: translateX(0); }
+.dash-header { padding: 14px 16px; border-bottom: 1px solid #3e3f42; display: flex; align-items: center; justify-content: space-between; }
+.dash-header h3 { color: #fff; font-size: 1rem; font-weight: 700; margin: 0; }
+.dash-body { flex: 1; overflow-y: auto; padding: 16px; }
+.dash-readiness { text-align: center; margin-bottom: 20px; }
+.dash-readiness-title { color: #888; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.dash-readiness-score { color: #fff; font-size: 2.2rem; font-weight: 800; }
+.progress-bar { background: #3e3f42; border-radius: 6px; height: 10px; overflow: hidden; margin-top: 6px; }
+.progress-bar-fill { height: 100%; border-radius: 6px; transition: width 0.5s ease; }
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.stat-card {
+  background: #222529; border-radius: 10px; padding: 12px;
+  border: 1px solid #3e3f42;
+}
+.stat-card-label { color: #888; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 0.04em; }
+.stat-card-value { color: #fff; font-size: 1.3rem; font-weight: 800; }
+.stat-card-sub { color: #888; font-size: 0.72rem; margin-top: 2px; }
+.contributor-bar { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.contributor-bar .cb-icon { font-size: 0.85rem; flex-shrink: 0; }
+.contributor-bar .cb-name { color: #d1d2d3; font-size: 0.82rem; min-width: 80px; }
+.contributor-bar .cb-bar { flex: 1; height: 8px; background: #3e3f42; border-radius: 4px; overflow: hidden; }
+.contributor-bar .cb-bar-fill { height: 100%; background: #7b61ff; border-radius: 4px; }
+.contributor-bar .cb-count { color: #888; font-size: 0.72rem; min-width: 50px; text-align: right; }
+.dash-section-label { color: #888; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; margin: 16px 0 8px; letter-spacing: 0.05em; }
+.recent-decision { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; }
+.recent-decision .rd-title { color: #d1d2d3; font-size: 0.82rem; flex: 1; }
+.recent-decision .rd-time { color: #616061; font-size: 0.7rem; flex-shrink: 0; }
+
+/* ─── ASYNC TASKS ─────────────────────────────────────────── */
+.btn-tasks {
+  background: #2c2d30; border: 1px solid #4a4b4e; color: #d1d2d3;
+  padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem;
+  font-weight: 700; flex-shrink: 0; transition: all 0.15s; white-space: nowrap;
+  position: relative;
+}
+.btn-tasks:hover { background: #3e3f42; border-color: #7b61ff; color: #fff; }
+.btn-tasks.has-running { border-color: #e8a34a; color: #e8a34a; }
+.tasks-badge {
+  position: absolute; top: -6px; right: -6px; background: #e8a34a;
+  color: #fff; font-size: 0.6rem; font-weight: 800; min-width: 16px;
+  height: 16px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; padding: 0 4px;
+}
+.tasks-panel {
+  position: fixed; top: 0; right: 0; bottom: 0; width: 380px; max-width: 100vw;
+  background: #2c2d30; border-left: 1px solid #3e3f42; z-index: 58;
+  transform: translateX(100%); transition: transform 0.25s ease;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.tasks-panel.open { transform: translateX(0); }
+.async-task-item {
+  background: #222529; border-radius: 10px; padding: 12px; margin-bottom: 8px;
+  border-left: 3px solid #e8a34a;
+}
+.async-task-item.task-done { border-left-color: #2bac76; }
+.async-task-item.task-failed { border-left-color: #e8596e; }
+.async-task-bar {
+  height: 6px; background: #3e3f42; border-radius: 3px; overflow: hidden; margin-top: 8px;
+}
+.async-task-bar-fill {
+  height: 100%; border-radius: 3px; transition: width 0.5s ease;
+  background: linear-gradient(90deg, #7b61ff, #e8a34a);
+  background-size: 200% 100%;
+  animation: asyncGradient 2s ease-in-out infinite;
+}
+@keyframes asyncGradient { 0%,100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+.async-task-item.task-done .async-task-bar-fill { background: #2bac76; animation: none; }
+
 /* ─── ACTION PLAN PANEL ────────────────────────────────── */
 .btn-plan {
   background: #2c2d30; border: 1px solid #4a4b4e; color: #d1d2d3;
@@ -699,6 +780,8 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
         <div class="ch-title" id="chName">general</div>
         <div class="ch-desc" id="chDesc"></div>
       </div>
+      <button class="btn-dashboard" onclick="toggleDashboard()">📊</button>
+      <button class="btn-tasks" id="btnTasks" onclick="toggleTasksPanel()">⏳ Tasks <span class="tasks-badge hidden" id="tasksBadge">0</span></button>
       <button class="btn-plan hidden" id="btnPlan" onclick="togglePlanPanel()">📋 Plan <span class="plan-badge hidden" id="planBadge">!</span></button>
       <button class="btn-inbox" onclick="toggleInbox()">📬 Inbox <span class="inbox-badge hidden" id="inboxBadge">0</span></button>
       <button class="btn-team" onclick="openTeamModal()">⚡ Team</button>
@@ -822,6 +905,28 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
     <button style="background:#3e3f42;color:#aaa" onclick="closePlanPanel()">Cancel</button>
     <button style="background:#4a4b4e;color:#fff" onclick="savePlanChanges()">Save changes</button>
     <button style="background:#7b61ff;color:#fff;flex:1" onclick="executePlan()">▶ Execute →</button>
+  </div>
+</div>
+
+<!-- DASHBOARD PANEL -->
+<div class="dashboard-panel" id="dashboardPanel">
+  <div class="dash-header">
+    <h3>📊 AGI Readiness Dashboard</h3>
+    <button class="mp-close" onclick="closeDashboard()">&times;</button>
+  </div>
+  <div class="dash-body" id="dashBody">
+    <div style="text-align:center;color:#616061;padding:40px">Loading...</div>
+  </div>
+</div>
+
+<!-- ASYNC TASKS PANEL -->
+<div class="tasks-panel" id="tasksPanel">
+  <div class="mp-header">
+    <h3>⏳ Async Tasks</h3>
+    <button class="mp-close" onclick="closeTasksPanel()">&times;</button>
+  </div>
+  <div class="mp-body" id="tasksList">
+    <div class="inbox-empty">No async tasks</div>
   </div>
 </div>
 
@@ -2096,6 +2201,224 @@ function renderMsg(t = '') {
   s = s.replace(/\n/g, '<br>');
   return s;
 }
+
+/* ── DASHBOARD ── */
+let dashboardInterval = null;
+
+function toggleDashboard() {
+  const panel = document.getElementById('dashboardPanel');
+  if (panel.classList.contains('open')) { closeDashboard(); return; }
+  panel.classList.add('open');
+  loadDashboard();
+  dashboardInterval = setInterval(loadDashboard, 30000);
+}
+function closeDashboard() {
+  document.getElementById('dashboardPanel').classList.remove('open');
+  if (dashboardInterval) { clearInterval(dashboardInterval); dashboardInterval = null; }
+}
+
+function renderBarChart(value, max, width = 20) {
+  const filled = max > 0 ? Math.round((value / max) * width) : 0;
+  return '<span style="color:#7b61ff">' + '\u2588'.repeat(filled) + '</span><span style="color:#3e3f42">' + '\u2591'.repeat(width - filled) + '</span>';
+}
+
+function renderPercent(value) {
+  const color = value > 70 ? '#2bac76' : value > 40 ? '#e8a34a' : '#e8596e';
+  return `<span style="color:${color};font-weight:700">${value}%</span>`;
+}
+
+async function loadDashboard() {
+  try {
+    const r = await fetch('/api/dashboard/stats');
+    const s = await r.json();
+    const body = document.getElementById('dashBody');
+
+    const scoreColor = s.agiReadinessScore > 70 ? '#2bac76' : s.agiReadinessScore > 40 ? '#e8a34a' : '#e8596e';
+
+    body.innerHTML = `
+      <div class="dash-readiness">
+        <div class="dash-readiness-title">AGI Readiness Test</div>
+        <div class="dash-readiness-score">${s.agiReadinessScore}<span style="font-size:1rem;color:#888">/100</span></div>
+        <div class="progress-bar"><div class="progress-bar-fill" style="width:${s.agiReadinessScore}%;background:${scoreColor}"></div></div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-card-label">Messages</div>
+          <div class="stat-card-value">${s.messages.total}</div>
+          <div class="stat-card-sub">${renderPercent(s.messages.aiPercent)} AI · ${100 - s.messages.aiPercent}% human</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Missions</div>
+          <div class="stat-card-value">${s.missions.active}</div>
+          <div class="stat-card-sub">${s.missions.completed} completed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Artifacts</div>
+          <div class="stat-card-value">${s.artifacts.total}</div>
+          <div class="stat-card-sub">${s.artifacts.approved} approved</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Team Sessions</div>
+          <div class="stat-card-value">${s.teamSessions.total}</div>
+          <div class="stat-card-sub">${s.teamSessions.completed} completed</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Action Plans</div>
+          <div class="stat-card-value">${s.actionPlans.total}</div>
+          <div class="stat-card-sub">${s.actionPlans.tasksAutoExecuted} auto-tasks</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-label">Blockings</div>
+          <div class="stat-card-value">${s.blockingQuestions.total}</div>
+          <div class="stat-card-sub">${s.blockingQuestions.answered} answered</div>
+        </div>
+      </div>
+
+      <div class="dash-section-label">Top Contributors</div>
+      ${s.topContributors.map(c => {
+        const icon = c.isBot ? '\uD83E\uDD16' : '\uD83D\uDC64';
+        const maxMsgs = s.topContributors[0]?.messageCount || 1;
+        return `<div class="contributor-bar">
+          <span class="cb-icon">${icon}</span>
+          <span class="cb-name">${esc(c.displayName)}</span>
+          <div class="cb-bar"><div class="cb-bar-fill" style="width:${Math.round((c.messageCount/maxMsgs)*100)}%"></div></div>
+          <span class="cb-count">${c.messageCount} msgs</span>
+        </div>`;
+      }).join('')}
+
+      <div class="dash-section-label">Recent Decisions</div>
+      ${s.recentDecisions.length > 0 ? s.recentDecisions.map(d => `<div class="recent-decision">
+        <span class="rd-title">${esc(d.title)}</span>
+        <span class="rd-time">${relTime(new Date(d.createdAt))}</span>
+      </div>`).join('') : '<div style="color:#616061;font-size:.82rem">No decisions yet</div>'}
+
+      <div class="dash-section-label">Message Timeline (7 days)</div>
+      ${s.timeline.map(d => `<div style="display:flex;align-items:center;gap:6px;padding:2px 0">
+        <span style="color:#888;font-size:.7rem;min-width:60px">${d.date.slice(5)}</span>
+        <span style="font-size:.7rem">${renderBarChart(d.ai, Math.max(...s.timeline.map(t=>t.ai+t.human)), 15)}</span>
+        <span style="color:#616061;font-size:.68rem">${d.human+d.ai}</span>
+      </div>`).join('')}
+    `;
+  } catch (e) { console.error('Dashboard load failed:', e); }
+}
+
+/* ── ASYNC TASKS PANEL ── */
+let asyncTasks = [];
+
+function toggleTasksPanel() {
+  const panel = document.getElementById('tasksPanel');
+  if (panel.classList.contains('open')) { closeTasksPanel(); return; }
+  panel.classList.add('open');
+  loadAsyncTasks();
+}
+function closeTasksPanel() {
+  document.getElementById('tasksPanel').classList.remove('open');
+}
+
+async function loadAsyncTasks() {
+  try {
+    const r = await fetch('/api/async-tasks');
+    asyncTasks = await r.json();
+    renderAsyncTasks();
+    updateTasksBadge();
+  } catch (e) { console.error('Load async tasks failed:', e); }
+}
+
+function updateTasksBadge() {
+  const running = asyncTasks.filter(t => t.status === 'running' || t.status === 'queued').length;
+  const badge = document.getElementById('tasksBadge');
+  const btn = document.getElementById('btnTasks');
+  if (running > 0) {
+    badge.textContent = running;
+    badge.classList.remove('hidden');
+    btn.classList.add('has-running');
+  } else {
+    badge.classList.add('hidden');
+    btn.classList.remove('has-running');
+  }
+}
+
+function renderAsyncTasks() {
+  const list = document.getElementById('tasksList');
+  if (asyncTasks.length === 0) {
+    list.innerHTML = '<div class="inbox-empty">No async tasks yet</div>';
+    return;
+  }
+  list.innerHTML = asyncTasks.map(t => {
+    const statusClass = t.status === 'done' ? 'task-done' : t.status === 'failed' ? 'task-failed' : '';
+    const statusIcon = t.status === 'done' ? '\u2705' : t.status === 'failed' ? '\u274C' : t.status === 'running' ? '\u23F3' : '\uD83D\uDCCB';
+    return `<div class="async-task-item ${statusClass}" id="async-task-${t.id}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span>${statusIcon}</span>
+        <span style="color:#fff;font-size:.88rem;font-weight:600;flex:1">${esc(t.prompt)}</span>
+      </div>
+      <div style="color:#888;font-size:.72rem">
+        Agent: ${esc(t.agentUsername)} · ${t.status} · ${relTime(new Date(t.createdAt))}
+      </div>
+      <div class="async-task-bar"><div class="async-task-bar-fill" style="width:${t.progress}%"></div></div>
+      ${t.artifactId ? `<div style="margin-top:6px"><span class="ai-artifact-link" onclick="viewArtifact('${t.artifactId}')">View artifact</span></div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// Listen for async task socket events
+if (typeof socket !== 'undefined' && socket) {
+  setupTaskListeners();
+}
+
+function setupTaskListeners() {
+  if (!socket) return;
+  socket.on('task_started', data => {
+    loadAsyncTasks();
+    showToast('\u23F3 Task Started', `${data.agentUsername}: ${data.prompt}`);
+  });
+  socket.on('task_progress', data => {
+    const el = document.getElementById(`async-task-${data.taskId}`);
+    if (el) {
+      const bar = el.querySelector('.async-task-bar-fill');
+      if (bar) bar.style.width = data.progress + '%';
+    }
+    const task = asyncTasks.find(t => t.id === data.taskId);
+    if (task) { task.progress = data.progress; task.status = data.status; }
+    updateTasksBadge();
+  });
+  socket.on('task_done', data => {
+    loadAsyncTasks();
+    showToast('\u2705 Task Complete', `${data.agentUsername} finished`);
+    loadInbox();
+  });
+}
+
+// Override initSocket to add task listeners
+const _origInitSocket = initSocket;
+initSocket = function() {
+  _origInitSocket();
+  setupTaskListeners();
+};
+
+/* ── AGENT MEMORY IN PROFILE ── */
+const _origShowProfile = showProfile;
+showProfile = async function(userId, evt) {
+  await _origShowProfile(userId, evt);
+  // After profile renders, try to add memories section
+  try {
+    const r = await fetch(`/api/users/${userId}/profile`);
+    const u = await r.json();
+    if (!u.isBot) return;
+    const memR = await fetch(`/api/agents/${u.username}/memories`);
+    const memories = await memR.json();
+    if (memories.length === 0) return;
+    const card = document.getElementById('profileCard');
+    const memHtml = `<div class="pc-missions" style="margin-top:8px">
+      <div class="pc-missions-label">Memories</div>
+      ${memories.slice(0, 5).map(m => `<div style="font-size:.75rem;color:#aaa;padding:2px 0">
+        <span class="skill-tag" style="font-size:.6rem">${esc(m.type)}</span> ${esc(m.content)}
+      </div>`).join('')}
+    </div>`;
+    card.innerHTML += memHtml;
+  } catch(e) {}
+};
 </script>
 </body>
 </html>

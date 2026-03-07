@@ -18,6 +18,17 @@ const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
 
+// ── Brave Search API integration ─────────────────────────
+// Set BRAVE_API_KEY in Railway environment variables for web search
+async function braveSearch(query, count = 5) {
+  const BRAVE_KEY = process.env.BRAVE_API_KEY;
+  if (!BRAVE_KEY) return null;
+  const url = `https://api.search.brave.com/res/v1/web/search?q=${encodeURIComponent(query)}&count=${count}&text_decorations=false`;
+  const res = await fetch(url, { headers: { 'Accept': 'application/json', 'X-Subscription-Token': BRAVE_KEY } });
+  const data = await res.json();
+  return data.web?.results?.map(r => ({ title: r.title, url: r.url, description: r.description })) || [];
+}
+
 // ── Multi-agent team definitions ──────────────────────────
 const AGENT_DEFS = {
   aria: {
@@ -70,11 +81,19 @@ const AGENT_TOOLS = {
     name: 'write_research_report',
     artifactType: 'research_report',
     execute: async (task, context) => {
+      let searchContext = '';
+      try {
+        const searchResults = await braveSearch(task.title);
+        if (searchResults && searchResults.length > 0) {
+          searchContext = 'SEARCH RESULTS:\n' + searchResults.map((r, i) => `${i+1}. ${r.title}\n   ${r.url}\n   ${r.description}`).join('\n') + '\n\n';
+        }
+      } catch (e) { console.error('Brave search failed for sage:', e.message); }
+
       const res = await openai.chat.completions.create({
         model: 'gpt-4o',
         messages: [
-          { role: 'system', content: 'You are Sage, a researcher. Write a thorough research report in markdown. Include: ## Summary, ## Key Findings, ## Data Points, ## Risks & Considerations, ## Recommendations. Use specific examples, numbers, comparisons.' },
-          { role: 'user', content: `Research task: ${task.title}\nContext: ${context}\n\nWrite the full research report now.` }
+          { role: 'system', content: 'You are Sage, a researcher. Write a thorough research report in markdown. Include: ## Summary, ## Key Findings, ## Data Points, ## Risks & Considerations, ## Recommendations. Use specific examples, numbers, comparisons. When search results are provided, cite them with links.' },
+          { role: 'user', content: `${searchContext}Research task: ${task.title}\nContext: ${context}\n\nWrite the full research report now.` }
         ],
         max_tokens: 800
       });
@@ -234,8 +253,8 @@ app.post('/api/channels/:id/messages', async (req, res) => {
     io.to(req.params.id).emit('new_message', message);
     res.json(message);
 
-    // Check for @agi mention
-    if (content.toLowerCase().includes('@agi')) {
+    // Check for @agi or @sage mention
+    if (content.toLowerCase().includes('@agi') || content.toLowerCase().includes('@sage')) {
       handleAgiMention(req.params.id, content);
       return;
     }
@@ -988,6 +1007,10 @@ async function runTeamSession(channelId, topic) {
       .map((m) => `${m.name}: ${m.content}`)
       .join('\n');
 
+    // Inject agent memories
+    const agentMemories = await getAgentMemories(username, channelId);
+    const memoriesBlock = agentMemories ? `\n\n${agentMemories}` : '';
+
     const userPrompt = isFirst
       ? `The team needs to think through this: "${topic}". You're up first — kick off the discussion as ${def.displayName} (${def.role}).`
       : `Topic: "${topic}"\n\nWhat's been said so far:\n${context}\n\nNow it's your turn as ${def.displayName} (${def.role}). Respond to what's been discussed — build on it, challenge it, or add your angle.`;
@@ -995,7 +1018,7 @@ async function runTeamSession(channelId, topic) {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
-        { role: 'system', content: def.system + humanContextBlock },
+        { role: 'system', content: def.system + humanContextBlock + memoriesBlock },
         { role: 'user', content: userPrompt },
       ],
       max_tokens: 180,
@@ -1090,6 +1113,12 @@ async function runTeamSession(channelId, topic) {
           data: { status: 'completed', completedAt: new Date(), artifactId: artifact.id },
         });
         io.to(channelId).emit('session_completed', { sessionId: sessionThread.id, title: sessionThread.title });
+      }
+
+      // Extract memories for each agent after session
+      const memoryContent = `Topic: "${topic}"\n\nDiscussion:\n${fullDiscussion}`;
+      for (const agentName of sequence) {
+        extractAndSaveMemories(agentName, memoryContent, channelId, null).catch(() => {});
       }
 
       // Generate ActionPlan from the discussion
@@ -1262,11 +1291,47 @@ async function buildTeamContext(channelId) {
   return lines.length > 0 ? `TEAM CONTEXT:\n${lines.join('\n')}` : '';
 }
 
-// Handle @agi mentions
+// Handle @agi and @sage mentions
 async function handleAgiMention(channelId, userMessage) {
   if (!openai) return;
 
   try {
+    // Check for @sage mention — use search-backed response
+    const isSageMention = /@sage\b/i.test(userMessage);
+    if (isSageMention) {
+      const sageUser = await prisma.user.findUnique({ where: { username: 'sage' } });
+      if (!sageUser) return;
+
+      // Extract query from the message (remove @sage)
+      const query = userMessage.replace(/@sage/gi, '').trim();
+
+      let searchContext = '';
+      try {
+        const searchResults = await braveSearch(query);
+        if (searchResults && searchResults.length > 0) {
+          searchContext = '\n\nSEARCH RESULTS:\n' + searchResults.map((r, i) => `${i+1}. ${r.title}\n   ${r.url}\n   ${r.description}`).join('\n');
+        }
+      } catch (e) { console.error('Brave search for @sage failed:', e.message); }
+
+      const sageMemories = await getAgentMemories('sage', channelId);
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: `${AGENT_DEFS.sage.system}\n\n${sageMemories}\n\nWhen search results are provided, incorporate them into your response with links. Be thorough but concise.` },
+          { role: 'user', content: `Research this: ${query}${searchContext}` }
+        ],
+        max_tokens: 300,
+      });
+
+      const msg = await prisma.message.create({
+        data: { content: completion.choices[0].message.content, userId: sageUser.id, channelId, isAI: true },
+        include: { user: true },
+      });
+      io.to(channelId).emit('new_message', msg);
+      return;
+    }
+
     const agiUser = await prisma.user.findUnique({
       where: { username: 'agi' },
     });
@@ -1285,13 +1350,14 @@ async function handleAgiMention(channelId, userMessage) {
       .join('\n');
 
     const teamContext = await buildTeamContext(channelId);
+    const agiMemories = await getAgentMemories('agi', channelId);
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: `You are AGI, a brilliant AI assistant in a Slack channel. Be helpful, insightful, slightly snarky about being better than Slack. You know your team members and can reference their specific skills and backgrounds when relevant.\n\n${teamContext}`,
+          content: `You are AGI, a brilliant AI assistant in a Slack channel. Be helpful, insightful, slightly snarky about being better than Slack. You know your team members and can reference their specific skills and backgrounds when relevant.\n\n${teamContext}\n\n${agiMemories}`,
         },
         {
           role: 'user',
@@ -1691,12 +1757,40 @@ async function passiveAgentResponse(channelId, content, senderId) {
     });
     const context = msgContext.reverse().map(m => `${m.user.displayName}: ${m.content}`).join('\n');
 
+    const passiveMemories = await getAgentMemories(agentUsername, channelId);
+    const passiveMemBlock = passiveMemories ? `\n\n${passiveMemories}` : '';
+
+    // Detect async task patterns
+    const asyncPattern = /\b(para (mañana|el lunes|esta noche|después|más tarde)|by (tomorrow|tonight|later|end of day))\b/i;
+    if (asyncPattern.test(content)) {
+      const mentionedAgent = content.toLowerCase().match(/@(sage|cody|aria|rex|agi)\b/)?.[1] || agentUsername;
+      const taskPrompt = content.replace(/@\w+/g, '').replace(asyncPattern, '').trim();
+      if (taskPrompt.length > 5) {
+        const taskType = mentionedAgent === 'sage' ? 'research' : mentionedAgent === 'cody' ? 'code' : 'analysis';
+        try {
+          const asyncTask = await prisma.asyncTask.create({
+            data: { agentUsername: mentionedAgent, channelId, type: taskType, prompt: taskPrompt, requestedById: senderId, status: 'queued' },
+          });
+          runAsyncTask(asyncTask).catch(e => console.error('Async task error:', e));
+          const agUser = await prisma.user.findUnique({ where: { username: mentionedAgent } });
+          if (agUser) {
+            const ackMsg = await prisma.message.create({
+              data: { content: `📋 Got it — I'll work on "${taskPrompt}" and deliver it when ready.`, userId: agUser.id, channelId, isAI: true },
+              include: { user: true },
+            });
+            io.to(channelId).emit('new_message', ackMsg);
+          }
+          return;
+        } catch (e) { console.error('Async task creation failed:', e.message); }
+      }
+    }
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         {
           role: 'system',
-          content: `${def.system}\n\nYou're a member of a Slack channel. Respond ONLY if you have something genuinely useful to add — a concrete insight, a concern, or relevant info from your area. If the conversation doesn't need your input right now, respond with exactly "PASS". Max 2-3 sentences. Natural, direct tone.`
+          content: `${def.system}\n\nYou're a member of a Slack channel. Respond ONLY if you have something genuinely useful to add — a concrete insight, a concern, or relevant info from your area. If the conversation doesn't need your input right now, respond with exactly "PASS". Max 2-3 sentences. Natural, direct tone.${passiveMemBlock}`
         },
         {
           role: 'user',
@@ -1717,6 +1811,340 @@ async function passiveAgentResponse(channelId, content, senderId) {
     io.to(channelId).emit('new_message', msg);
   } catch (err) {
     console.error('Passive agent error:', err.message);
+  }
+}
+
+// ── DASHBOARD STATS ──────────────────────────────────────────
+
+app.get('/api/dashboard/stats', async (req, res) => {
+  try {
+    const [totalMessages, aiMessages, totalMissions, activeMissions, completedMissions,
+           totalArtifacts, approvedArtifacts, pendingArtifacts,
+           totalSessions, completedSessions,
+           totalPlans, executedPlans,
+           totalAutoTasks, totalHumanTasks,
+           totalQuestions, answeredQuestions] = await Promise.all([
+      prisma.message.count(),
+      prisma.message.count({ where: { isAI: true } }),
+      prisma.mission.count(),
+      prisma.mission.count({ where: { status: 'active' } }),
+      prisma.mission.count({ where: { status: 'completed' } }),
+      prisma.artifact.count(),
+      prisma.artifact.count({ where: { status: 'approved' } }),
+      prisma.artifact.count({ where: { status: { in: ['draft', 'pending_review'] } } }),
+      prisma.sessionThread.count(),
+      prisma.sessionThread.count({ where: { status: 'completed' } }),
+      prisma.actionPlan.count(),
+      prisma.actionPlan.count({ where: { status: 'completed' } }),
+      prisma.actionItem.count({ where: { canAutoExecute: true } }),
+      prisma.actionItem.count({ where: { canAutoExecute: false } }),
+      prisma.blockingQuestion.count(),
+      prisma.blockingQuestion.count({ where: { status: 'answered' } }),
+    ]);
+
+    const humanMessages = totalMessages - aiMessages;
+    const aiPercent = totalMessages > 0 ? Math.round((aiMessages / totalMessages) * 100) : 0;
+
+    // Average answer time for blocking questions
+    const answeredQs = await prisma.blockingQuestion.findMany({
+      where: { status: 'answered', answeredAt: { not: null } },
+      select: { createdAt: true, answeredAt: true },
+    });
+    const avgAnswerTimeMinutes = answeredQs.length > 0
+      ? Math.round(answeredQs.reduce((sum, q) => sum + (q.answeredAt - q.createdAt) / 60000, 0) / answeredQs.length)
+      : 0;
+
+    // Top contributors
+    const topContributorsRaw = await prisma.message.groupBy({
+      by: ['userId'],
+      _count: { id: true },
+      orderBy: { _count: { id: 'desc' } },
+      take: 5,
+    });
+    const topUserIds = topContributorsRaw.map(c => c.userId);
+    const topUsers = await prisma.user.findMany({ where: { id: { in: topUserIds } } });
+    const artifactCounts = await prisma.artifact.groupBy({
+      by: ['createdById'],
+      _count: { id: true },
+      where: { createdById: { in: topUserIds } },
+    });
+    const topContributors = topContributorsRaw.map(c => {
+      const u = topUsers.find(u => u.id === c.userId);
+      const ac = artifactCounts.find(a => a.createdById === c.userId);
+      return {
+        displayName: u?.displayName || 'Unknown',
+        username: u?.username || '',
+        isBot: u?.isBot || false,
+        messageCount: c._count.id,
+        artifactCount: ac?._count?.id || 0,
+      };
+    });
+
+    // Recent decisions (last 5 approved artifacts)
+    const recentDecisions = await prisma.artifact.findMany({
+      where: { status: 'approved' },
+      include: { mission: true },
+      orderBy: { updatedAt: 'desc' },
+      take: 5,
+    });
+
+    // AGI readiness score
+    const autoTasksPercent = (totalAutoTasks + totalHumanTasks) > 0
+      ? (totalAutoTasks / (totalAutoTasks + totalHumanTasks)) * 100
+      : 0;
+    const artifactApprovalRate = totalArtifacts > 0 ? (approvedArtifacts / totalArtifacts) : 0;
+    const agiReadinessScore = Math.round(
+      (aiPercent * 0.4) + (autoTasksPercent * 0.3) + (artifactApprovalRate * 0.3) * 100
+    );
+
+    // Timeline: last 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentMsgs = await prisma.message.findMany({
+      where: { createdAt: { gte: sevenDaysAgo } },
+      select: { createdAt: true, isAI: true },
+    });
+    const timelineMap = {};
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const key = d.toISOString().slice(0, 10);
+      timelineMap[key] = { date: key, human: 0, ai: 0 };
+    }
+    for (const m of recentMsgs) {
+      const key = m.createdAt.toISOString().slice(0, 10);
+      if (timelineMap[key]) {
+        if (m.isAI) timelineMap[key].ai++;
+        else timelineMap[key].human++;
+      }
+    }
+
+    res.json({
+      messages: { total: totalMessages, human: humanMessages, ai: aiMessages, aiPercent },
+      missions: { total: totalMissions, active: activeMissions, completed: completedMissions },
+      artifacts: { total: totalArtifacts, approved: approvedArtifacts, pending: pendingArtifacts },
+      teamSessions: { total: totalSessions, completed: completedSessions },
+      actionPlans: { total: totalPlans, executed: executedPlans, tasksAutoExecuted: totalAutoTasks, tasksHuman: totalHumanTasks },
+      blockingQuestions: { total: totalQuestions, answered: answeredQuestions, avgAnswerTimeMinutes },
+      topContributors,
+      recentDecisions: recentDecisions.map(a => ({
+        title: a.title,
+        missionTitle: a.mission?.title || null,
+        createdAt: a.createdAt,
+      })),
+      agiReadinessScore: Math.min(100, Math.max(0, agiReadinessScore)),
+      timeline: Object.values(timelineMap),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── AGENT MEMORY ENDPOINTS ──────────────────────────────────
+
+// Get agent memories
+app.get('/api/agents/:username/memories', async (req, res) => {
+  try {
+    const memories = await prisma.agentMemory.findMany({
+      where: { agentUsername: req.params.username },
+      orderBy: { importance: 'desc' },
+    });
+    res.json(memories);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete a specific memory
+app.delete('/api/agents/:username/memories/:id', async (req, res) => {
+  try {
+    await prisma.agentMemory.delete({ where: { id: req.params.id } });
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── AGENT MEMORY HELPERS ────────────────────────────────────
+
+async function getAgentMemories(agentUsername, channelId) {
+  const memories = await prisma.agentMemory.findMany({
+    where: {
+      agentUsername,
+      AND: [
+        { OR: [{ channelId }, { channelId: null }] },
+        { OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }] },
+      ],
+    },
+    orderBy: { importance: 'desc' },
+    take: 5,
+  });
+  if (!memories.length) return '';
+  return `MY MEMORIES:\n${memories.map(m => `- [${m.type}] ${m.content}`).join('\n')}`;
+}
+
+async function extractAndSaveMemories(agentUsername, sessionContent, channelId, missionId) {
+  if (!openai) return;
+  try {
+    const def = AGENT_DEFS[agentUsername];
+    if (!def) return;
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: `You are ${def.displayName}. Based on this team session, what are 1-2 key things YOU personally should remember for future sessions? Focus on: decisions made, team preferences, technical choices, unresolved concerns. Return JSON only: [{"type":"decision|preference|context|lesson","content":"...","importance":1-10}]` },
+        { role: 'user', content: sessionContent }
+      ],
+      temperature: 0.5,
+      response_format: { type: 'json_object' },
+      max_tokens: 200,
+    });
+    let parsed = JSON.parse(completion.choices[0].message.content);
+    // Handle both { memories: [...] } and direct array
+    if (parsed.memories) parsed = parsed.memories;
+    if (!Array.isArray(parsed)) parsed = [parsed];
+    for (const mem of parsed) {
+      if (!mem.content) continue;
+      await prisma.agentMemory.create({
+        data: {
+          agentUsername,
+          type: mem.type || 'context',
+          content: mem.content,
+          importance: mem.importance || 5,
+          channelId: channelId || null,
+          missionId: missionId || null,
+        },
+      });
+    }
+  } catch (e) {
+    console.error(`Memory extraction failed for ${agentUsername}:`, e.message);
+  }
+}
+
+// ── ASYNC TASKS ──────────────────────────────────────────────
+
+// Create async task
+app.post('/api/async-tasks', async (req, res) => {
+  try {
+    const { agentUsername, channelId, missionId, type, prompt, requestedById } = req.body;
+    if (!agentUsername || !channelId || !type || !prompt || !requestedById) {
+      return res.status(400).json({ error: 'agentUsername, channelId, type, prompt, requestedById required' });
+    }
+    const task = await prisma.asyncTask.create({
+      data: { agentUsername, channelId, missionId: missionId || null, type, prompt, requestedById, status: 'queued' },
+    });
+    res.json(task);
+    // Start in background
+    runAsyncTask(task).catch(e => console.error('Async task error:', e));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get async tasks (optionally filtered)
+app.get('/api/async-tasks', async (req, res) => {
+  try {
+    const where = {};
+    if (req.query.status) where.status = req.query.status;
+    if (req.query.channelId) where.channelId = req.query.channelId;
+    const tasks = await prisma.asyncTask.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+    res.json(tasks);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+async function runAsyncTask(task) {
+  try {
+    // Set running
+    await prisma.asyncTask.update({ where: { id: task.id }, data: { status: 'running', progress: 10 } });
+    io.emit('task_progress', { taskId: task.id, progress: 10, status: 'running', agentUsername: task.agentUsername });
+    io.emit('task_started', { taskId: task.id, agentUsername: task.agentUsername, prompt: task.prompt });
+
+    // Post initial message
+    const agentUser = await prisma.user.findUnique({ where: { username: task.agentUsername } });
+    if (agentUser) {
+      const startMsg = await prisma.message.create({
+        data: { content: `⏳ Started working on: **${task.prompt}**`, userId: agentUser.id, channelId: task.channelId, isAI: true },
+        include: { user: true },
+      });
+      io.to(task.channelId).emit('new_message', startMsg);
+    }
+
+    // Do the work
+    const agentTool = AGENT_TOOLS[task.agentUsername];
+    let result;
+    if (agentTool) {
+      result = await agentTool.execute({ title: task.prompt }, task.prompt);
+    } else {
+      // Fallback: generic GPT-4o
+      const def = AGENT_DEFS[task.agentUsername] || AGENT_DEFS.agi;
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: def.system },
+          { role: 'user', content: `Task: ${task.prompt}\n\nProvide a thorough response.` }
+        ],
+        max_tokens: 800,
+      });
+      result = completion.choices[0].message.content;
+    }
+
+    io.emit('task_progress', { taskId: task.id, progress: 80, status: 'running', agentUsername: task.agentUsername });
+
+    // Save as artifact
+    const artifactType = agentTool?.artifactType || 'analysis';
+    const artifact = await prisma.artifact.create({
+      data: {
+        channelId: task.channelId,
+        missionId: task.missionId || null,
+        type: artifactType,
+        title: task.prompt,
+        content: result,
+        status: 'draft',
+        createdById: agentUser?.id || task.requestedById,
+        reviewerId: task.requestedById,
+      },
+      include: { createdBy: true },
+    });
+
+    // Update task
+    await prisma.asyncTask.update({
+      where: { id: task.id },
+      data: { status: 'done', progress: 100, result, artifactId: artifact.id, completedAt: new Date() },
+    });
+
+    // Post completion message
+    if (agentUser) {
+      const doneMsg = await prisma.message.create({
+        data: { content: `✅ Finished: **${task.prompt}** → Artifact created`, userId: agentUser.id, channelId: task.channelId, isAI: true },
+        include: { user: true },
+      });
+      io.to(task.channelId).emit('new_message', doneMsg);
+    }
+
+    io.emit('task_done', { taskId: task.id, artifact, agentUsername: task.agentUsername });
+
+    // Create inbox item
+    await prisma.inboxItem.create({
+      data: {
+        userId: task.requestedById,
+        type: 'artifact_review',
+        title: `Async task done: ${task.prompt}`,
+        priority: 'normal',
+        artifactId: artifact.id,
+        fromAgent: task.agentUsername,
+      },
+    });
+    io.emit('inbox_update', { userId: task.requestedById });
+
+  } catch (err) {
+    console.error('Async task execution failed:', err.message);
+    await prisma.asyncTask.update({
+      where: { id: task.id },
+      data: { status: 'failed', progress: 0 },
+    }).catch(() => {});
   }
 }
 
