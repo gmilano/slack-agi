@@ -70,6 +70,11 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 .ch-item::before { content: '#'; opacity: 0.6; flex-shrink: 0; }
 .ch-item:hover { background: #3e3f42; color: #d1d2d3; }
 .ch-item.active { background: #1164a3; color: #fff; font-weight: 600; }
+.dm-item { display:flex; align-items:center; gap:8px; padding:4px 12px; border-radius:6px; cursor:pointer; color:#ababad; font-size:0.88rem; transition:background 0.1s; }
+.dm-item:hover, .dm-item.active { background:#3e3f42; color:#fff; }
+.dm-avatar { width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:0.6rem; font-weight:700; color:#fff; flex-shrink:0; }
+.msg-name { cursor:pointer; }
+.msg-name:hover { text-decoration:underline; }
 .sidebar-users { margin-top: auto; border-top: 1px solid #3e3f42; padding: 8px 0 12px; }
 .u-item {
   padding: 5px 16px; font-size: 0.85rem; color: #ababad;
@@ -826,6 +831,10 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
       </div>
       <div id="missionsList"></div>
     </div>
+    <div class="sidebar-section" id="dmSection">
+      <div class="section-label">Direct Messages</div>
+      <div id="dmList"></div>
+    </div>
     <div class="sidebar-users">
       <div class="section-label">People</div>
       <div id="userList"></div>
@@ -1037,7 +1046,7 @@ async function login(username, silent) {
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     initSocket();
-    await Promise.all([loadChannels(), loadUsers(), loadMissions(), loadInbox(), loadSessions()]);
+    await Promise.all([loadChannels(), loadUsers(), loadMissions(), loadInbox(), loadSessions(), renderDMs()]);
     if (inboxInterval) clearInterval(inboxInterval);
     inboxInterval = setInterval(loadInbox, 30000);
     // Refresh countdown displays every minute
@@ -1178,13 +1187,14 @@ async function loadChannels() {
   const r = await fetch('/api/channels');
   channels = await r.json();
   renderChannelList();
-  const nonArchived = channels.filter(c => !c.name.startsWith('[archived]'));
+  const nonArchived = channels.filter(c => !c.name.startsWith('[archived]') && c.ephemeralTag !== 'dm');
   if (nonArchived.length) switchCh(nonArchived.find(c=>c.name==='general')?.id || nonArchived[0].id);
 }
 
 function renderChannelList() {
-  const permanent = channels.filter(c => !c.isEphemeral && !c.name.startsWith('[archived]'));
-  const ephemeral = channels.filter(c => c.isEphemeral && !c.name.startsWith('[archived]'));
+  const nonDm = channels.filter(c => c.ephemeralTag !== 'dm');
+  const permanent = nonDm.filter(c => !c.isEphemeral && !c.name.startsWith('[archived]'));
+  const ephemeral = nonDm.filter(c => c.isEphemeral && !c.name.startsWith('[archived]'));
 
   document.getElementById('channelList').innerHTML = permanent.map(c =>
     `<div class="ch-item" data-id="${c.id}" onclick="switchCh('${c.id}')">${esc(c.name)}</div>`
@@ -1223,6 +1233,7 @@ async function switchCh(id) {
   // Update sidebar
   document.querySelectorAll('.ch-item').forEach(el =>
     el.classList.toggle('active', el.dataset.id === id));
+  document.querySelectorAll('.dm-item').forEach(el => el.classList.remove('active'));
   document.getElementById('chName').textContent = curCh.name;
   document.getElementById('chDesc').textContent = curCh.description || '';
   document.getElementById('msgInput').placeholder = `Message #${curCh.name}`;
@@ -1250,12 +1261,96 @@ async function loadUsers() {
   const users = await r.json();
   allUsersCache = users;
   document.getElementById('userList').innerHTML = users.map(u =>
-    `<div class="u-item">
+    `<div class="u-item" style="cursor:pointer" onclick="openDMWith('${u.id}')">
       <span class="u-dot ${u.isBot?'bot':''}"></span>
       <span>${u.displayName}</span>
       ${u.isBot ? '<span class="bot-tag">BOT</span>' : ''}
     </div>`
   ).join('');
+}
+
+/* ── DIRECT MESSAGES ── */
+async function renderDMs() {
+  if (!me) return;
+  try {
+    const r = await fetch('/api/dm/' + me.id);
+    const dms = await r.json();
+    document.getElementById('dmList').innerHTML = dms.map(d => {
+      const u = d.otherUser;
+      const meta = AGENT_META[u.username] || {};
+      const color = meta.color || '#7b61ff';
+      const initials = (u.displayName || '?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+      const active = curCh && curCh.id === d.channel.id ? 'active' : '';
+      return `<div class="dm-item ${active}" data-channel-id="${d.channel.id}" onclick="selectDM('${d.channel.id}','${u.id}')">
+        <div class="dm-avatar" style="background:${color}">${initials}</div>
+        <span>${esc(u.displayName)}</span>
+      </div>`;
+    }).join('');
+  } catch(e) { console.error('renderDMs failed:', e); }
+}
+
+async function selectDM(channelId, otherUserId) {
+  // Make sure this channel is in our channels array
+  if (!channels.find(c => c.id === channelId)) {
+    try {
+      const r = await fetch('/api/channels');
+      channels = await r.json();
+      renderChannelList();
+    } catch(e) {}
+  }
+
+  if (curCh) socket.emit('leave_channel', curCh.id);
+  curCh = channels.find(c => c.id === channelId);
+  if (!curCh) {
+    // Create a minimal channel object if not in list
+    curCh = { id: channelId, name: 'DM', ephemeralTag: 'dm' };
+  }
+  socket.emit('join_channel', channelId);
+
+  // Update sidebar active states
+  document.querySelectorAll('.ch-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.dm-item').forEach(el =>
+    el.classList.toggle('active', el.dataset.channelId === channelId));
+
+  // Set header to other user's name
+  const otherUser = allUsersCache.find(u => u.id === otherUserId);
+  const displayName = otherUser?.displayName || 'DM';
+  document.getElementById('chName').textContent = displayName;
+  document.getElementById('chDesc').textContent = 'Direct Message';
+  document.getElementById('msgInput').placeholder = `Message ${displayName}`;
+
+  // Load messages
+  lastMsgUserId = null;
+  typingMap = {}; renderTyping();
+  const r = await fetch(`/api/channels/${channelId}/messages?limit=60`);
+  const msgs = await r.json();
+  const container = document.getElementById('messages');
+  container.innerHTML = '';
+  lastMsgUserId = null;
+  msgs.forEach((m) => {
+    const newGroup = m.userId !== lastMsgUserId;
+    lastMsgUserId = m.userId;
+    appendMsg(m, newGroup, true);
+  });
+  scrollBottom();
+  closeSidebar();
+}
+
+async function openDMWith(targetUserId) {
+  if (!me || targetUserId === me.id) return;
+  try {
+    const r = await fetch('/api/dm', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId1: me.id, userId2: targetUserId })
+    });
+    const channel = await r.json();
+    // Refresh channels list so switchCh can find it
+    const cr = await fetch('/api/channels');
+    channels = await cr.json();
+    renderChannelList();
+    await selectDM(channel.id, targetUserId);
+    renderDMs();
+  } catch(e) { console.error('openDMWith failed:', e); }
 }
 
 /* ── MESSAGES ── */
@@ -1282,7 +1377,7 @@ function appendMsg(msg, isNewGroup, noScroll) {
         <div class="msg-av" style="background:${color}">${initials}</div>
         <div>
           <div class="msg-meta">
-            <span class="msg-name" style="cursor:pointer" onclick="showProfile('${msg.userId}', event)">${esc(msg.user?.displayName||'?')}</span>
+            <span class="msg-name" style="cursor:pointer" onclick="openDMWith('${msg.userId}')">${esc(msg.user?.displayName||'?')}</span>
             ${roleBadge}
             <span class="msg-time">${timeStr}</span>
           </div>

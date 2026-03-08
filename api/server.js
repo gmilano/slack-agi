@@ -934,6 +934,78 @@ app.delete('/api/channels/:id/archive', async (req, res) => {
   }
 });
 
+// ── DM endpoints ─────────────────────────────────────────
+
+// Open or create a DM between two users
+app.post('/api/dm', async (req, res) => {
+  try {
+    const { userId1, userId2 } = req.body;
+    if (!userId1 || !userId2) return res.status(400).json({ error: 'userId1 and userId2 required' });
+
+    // Look for existing DM channel where both users are members
+    const existing = await prisma.channel.findFirst({
+      where: {
+        ephemeralTag: 'dm',
+        AND: [
+          { channelMembers: { some: { userId: userId1 } } },
+          { channelMembers: { some: { userId: userId2 } } },
+        ],
+      },
+      include: { channelMembers: { include: { user: true } } },
+    });
+
+    if (existing) return res.json(existing);
+
+    // Create new DM channel
+    const channel = await prisma.channel.create({
+      data: {
+        name: `dm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        description: '',
+        ephemeralTag: 'dm',
+        channelMembers: {
+          create: [{ userId: userId1 }, { userId: userId2 }],
+        },
+      },
+      include: { channelMembers: { include: { user: true } } },
+    });
+
+    res.json(channel);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List all DMs for a user
+app.get('/api/dm/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const channels = await prisma.channel.findMany({
+      where: {
+        ephemeralTag: 'dm',
+        channelMembers: { some: { userId } },
+      },
+      include: { channelMembers: { include: { user: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const result = channels.map(ch => {
+      const otherMember = ch.channelMembers.find(m => m.userId !== userId);
+      const otherUser = otherMember?.user;
+      const meta = otherUser ? {
+        id: otherUser.id,
+        username: otherUser.username,
+        displayName: otherUser.displayName,
+        isBot: otherUser.isBot,
+      } : null;
+      return { channel: ch, otherUser: meta };
+    }).filter(d => d.otherUser);
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Team session — multi-agent orchestrated discussion
 app.post('/api/channels/:id/team-session', async (req, res) => {
   const { topic } = req.body;
