@@ -771,6 +771,7 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 @media (max-width: 640px) {
   #sidebar {
     position: fixed; top: 0; bottom: 0; left: 0;
+    width: 85vw; max-width: 300px;
     transform: translateX(-100%);
     box-shadow: 4px 0 20px rgba(0,0,0,.5);
   }
@@ -1265,10 +1266,11 @@ async function switchCh(id) {
 
 /* ── USERS ── */
 async function loadUsers() {
-  const r = await fetch('/api/users');
+  const r = await fetch('/api/users?sidebar=true');
   const users = await r.json();
   allUsersCache = users;
-  document.getElementById('userList').innerHTML = users.map(u =>
+  const sidebarUsers = users;
+  document.getElementById('userList').innerHTML = sidebarUsers.map(u =>
     `<div class="u-item" style="cursor:pointer" onclick="openDMWith('${u.id}')">
       <span class="u-dot ${u.isBot?'bot':''}"></span>
       <span>${u.displayName}</span>

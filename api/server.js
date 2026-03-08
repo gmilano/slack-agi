@@ -280,7 +280,26 @@ app.post('/api/channels/:id/messages', async (req, res) => {
 // Get all users
 app.get('/api/users', async (req, res) => {
   try {
-    const users = await prisma.user.findMany({ orderBy: { username: 'asc' } });
+    const { sidebar, search, limit: lim } = req.query;
+    const where = {};
+    // sidebar=true → only bots + real named users (exclude bulk user_N accounts)
+    if (sidebar === 'true') {
+      where.OR = [
+        { isBot: true },
+        { username: { not: { startsWith: 'user_' } } },
+      ];
+    }
+    if (search) {
+      where.OR = [
+        { displayName: { contains: search, mode: 'insensitive' } },
+        { username: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    const users = await prisma.user.findMany({
+      where,
+      orderBy: { username: 'asc' },
+      take: lim ? parseInt(lim) : (sidebar === 'true' ? undefined : 100),
+    });
     res.json(users);
   } catch (err) {
     res.status(500).json({ error: err.message });
