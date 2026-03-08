@@ -56,6 +56,12 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
   display: none; background: none; border: none; color: #888;
   font-size: 1.4rem; cursor: pointer; padding: 2px 6px;
 }
+.sidebar-body {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+.sidebar-body::-webkit-scrollbar { width: 3px; }
+.sidebar-body::-webkit-scrollbar-thumb { background: #3e3f42; border-radius: 2px; }
 .sidebar-section { padding: 10px 0; }
 .section-label {
   padding: 4px 16px; font-size: 0.73rem; font-weight: 700;
@@ -812,6 +818,7 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
       <span class="workspace-name">AGI Labs 🚀</span>
       <button class="btn-close-sidebar" onclick="closeSidebar()">×</button>
     </div>
+    <div class="sidebar-body">
     <div class="sidebar-section">
       <div class="section-label">Channels</div>
       <div id="channelList"></div>
@@ -835,6 +842,7 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
       <div class="section-label">Direct Messages</div>
       <div id="dmList"></div>
     </div>
+    </div><!-- /sidebar-body -->
     <div class="sidebar-users">
       <div class="section-label">People</div>
       <div id="userList"></div>
