@@ -116,6 +116,18 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 .btn-team:hover { background: #3e3f42; border-color: #7b61ff; color: #fff; }
 .btn-team:active { transform: scale(0.97); }
 
+/* Compact header icon buttons */
+.hdr-btn {
+  background: #2c2d30; border: 1px solid #3e3f42; color: #d1d2d3;
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  font-size: 1rem; flex-shrink: 0; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; padding: 0;
+}
+.hdr-btn:hover { background: #3e3f42; border-color: #7b61ff; }
+.hdr-btn:active { transform: scale(0.92); }
+.hdr-btn.has-items { border-color: #e8596e; animation: inboxPulse 2s ease-in-out infinite; }
+
 /* Responsive header buttons */
 @media (max-width: 640px) { .desktop-only { display: none !important; } }
 @media (min-width: 641px) { .mobile-only { display: none !important; } }
@@ -805,24 +817,12 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
         <div class="ch-title" id="chName">general</div>
         <div class="ch-desc" id="chDesc"></div>
       </div>
-      <!-- Mobile: only inbox + team visible, rest in overflow -->
-      <button class="btn-inbox" onclick="toggleInbox()">📬 <span class="inbox-badge hidden" id="inboxBadge">0</span></button>
-      <button class="btn-team" onclick="openTeamModal()">⚡ Team</button>
-      <!-- Desktop-only buttons -->
-      <button class="btn-dashboard desktop-only" onclick="toggleDashboard()">📊</button>
-      <button class="btn-tasks desktop-only" id="btnTasks" onclick="toggleTasksPanel()">⏳ <span class="tasks-badge hidden" id="tasksBadge">0</span></button>
-      <button class="btn-plan desktop-only hidden" id="btnPlan" onclick="togglePlanPanel()">📋 <span class="plan-badge hidden" id="planBadge">!</span></button>
-      <button class="btn-summary desktop-only" onclick="showSummary()">✦</button>
-      <!-- Mobile overflow menu -->
-      <div class="overflow-menu mobile-only">
-        <button class="btn-overflow" onclick="toggleOverflow()" id="btnOverflow">···</button>
-        <div class="overflow-dropdown hidden" id="overflowDropdown">
-          <div class="overflow-item" onclick="toggleDashboard();closeOverflow()">📊 Dashboard</div>
-          <div class="overflow-item" onclick="toggleTasksPanel();closeOverflow()">⏳ Tasks</div>
-          <div class="overflow-item" id="overflowPlan" onclick="togglePlanPanel();closeOverflow()">📋 Plan</div>
-          <div class="overflow-item" onclick="showSummary();closeOverflow()">✦ Summary</div>
-        </div>
-      </div>
+      <button class="hdr-btn" onclick="toggleInbox()" title="Inbox" style="position:relative">📬<span class="inbox-badge hidden" id="inboxBadge">0</span></button>
+      <button class="hdr-btn" onclick="openTeamModal()" title="Team Session">⚡</button>
+      <button class="hdr-btn" onclick="toggleDashboard()" title="Dashboard">📊</button>
+      <button class="hdr-btn" id="btnTasks" onclick="toggleTasksPanel()" title="Async Tasks">⏳<span class="tasks-badge hidden" id="tasksBadge">0</span></button>
+      <button class="hdr-btn hidden" id="btnPlan" onclick="togglePlanPanel()" title="Action Plan">📋<span class="plan-badge hidden" id="planBadge">!</span></button>
+      <button class="hdr-btn" onclick="showSummary()" title="AI Summary">✦</button>
     </div>
 
     <div class="messages" id="messages"></div>
@@ -1703,7 +1703,7 @@ async function loadInbox() {
 
 function updateInboxBadge() {
   const badge = document.getElementById('inboxBadge');
-  const btn = document.querySelector('.btn-inbox');
+  const btn = document.querySelector('[onclick="toggleInbox()"]');
   const count = inboxItems.length;
   if (count > 0) {
     badge.textContent = count;
