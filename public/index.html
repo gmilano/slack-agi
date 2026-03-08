@@ -403,6 +403,13 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
   background: #2c2d30; border-radius: 14px; width: 100%; max-width: 700px;
   max-height: 85vh; display: flex; flex-direction: column; overflow: hidden;
 }
+@media (max-width: 640px) {
+  .artifact-viewer { padding: 0; align-items: flex-end; }
+  .artifact-box {
+    max-height: 90dvh; border-radius: 16px 16px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
 .artifact-header {
   padding: 16px 20px; border-bottom: 1px solid #3e3f42;
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
@@ -440,12 +447,13 @@ html, body { height: 100%; background: #1a1d21; color: #d1d2d3; font-family: -ap
 .artifact-content li { margin: 4px 0; }
 .artifact-content strong { color: #fff; }
 .artifact-footer {
-  padding: 12px 20px; border-top: 1px solid #3e3f42;
-  display: flex; gap: 8px; justify-content: flex-end;
+  padding: 12px 16px; border-top: 1px solid #3e3f42;
+  display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-start;
+  flex-shrink: 0;
 }
 .artifact-footer button {
-  padding: 8px 16px; border-radius: 8px; border: none; font-size: 0.82rem;
-  font-weight: 700; cursor: pointer; transition: all 0.15s;
+  padding: 8px 14px; border-radius: 8px; border: none; font-size: 0.82rem;
+  font-weight: 700; cursor: pointer; transition: all 0.15s; flex-shrink: 0;
 }
 
 /* ─── MISSION TOPICS ───────────────────────────────────── */
